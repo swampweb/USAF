@@ -138,3 +138,25 @@ td.actions { white-space: nowrap; }
 .icon-close { border: 0; background: #f2f4f7; border-radius: 12px; width: 38px; height: 38px; cursor: pointer; font-weight: 900; }
 @media (max-width: 1100px) { .tours-workspace { grid-template-columns: 1fr; } .tour-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .tour-detail-hero { flex-direction: column; } .tour-metrics { grid-template-columns: 1fr; } .tour-list-header { flex-direction: column; align-items: stretch; } }
+
+/* Receipts Workflow v10 */
+.receipts-workspace { display: grid; grid-template-columns: 430px 1fr; gap: 18px; align-items: start; }
+.receipt-list-header { display: grid; gap: 12px; margin-bottom: 14px; }
+.receipt-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.receipt-card-list { display: grid; gap: 10px; max-height: 620px; overflow: auto; padding-right: 4px; }
+.receipt-select-card { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 15px; padding: 13px; display: grid; gap: 8px; text-align: left; cursor: pointer; color: var(--text); }
+.receipt-select-card:hover, .receipt-select-card.active { border-color: var(--primary); background: #eff8ff; box-shadow: 0 8px 18px rgba(12,33,66,.08); }
+.receipt-card-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.receipt-card-top strong { font-size: 15px; }
+.receipt-card-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 12px; }
+.receipt-detail-empty { min-height: 420px; display: grid; place-items: center; border: 1px dashed var(--line); border-radius: 18px; background: #f8fafc; color: var(--muted); text-align: center; padding: 34px; }
+.receipt-detail { display: grid; gap: 16px; }
+.receipt-mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mode-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #fff; cursor: pointer; display: grid; gap: 4px; }
+.mode-card.active { border-color: var(--primary); background: #eff8ff; box-shadow: 0 8px 18px rgba(12,33,66,.08); }
+.mode-card strong { color: var(--text); }
+.mode-card span { color: var(--muted); font-size: 12px; }
+.receipt-summary-line { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.hidden { display: none !important; }
+@media (max-width: 1100px) { .receipts-workspace { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .receipt-filters, .receipt-mode-toggle { grid-template-columns: 1fr; } }

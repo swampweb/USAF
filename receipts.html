@@ -1,3 +1,44 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Per Diem Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=6"></head><body style="visibility:hidden"><div id="app">
-<div class="grid cols-2"><div class="card"><h2>Add Per Diem Receipts</h2><form id="receiptForm" class="form-grid"><label>Tour<select id="tour_id" required></select></label><div id="cycleWrap"><label>Per Diem Cycle<select id="cycle_id"><option value="">Select Tour first</option></select></label></div><label>Customer<input id="customer" required placeholder="Burger King, Shell, Hertz"></label><label>Type<select id="type_id"></select></label><label>Date<input id="receipt_date" type="date" required></label><label>Amount<input id="amount" type="number" step="0.01" required></label><label>Upload Receipt Copy<input id="receipt_file" type="file" accept="image/*,.pdf"></label><label>Notes<textarea id="notes"></textarea></label><button class="btn">Save Receipt</button></form></div><div class="card"><h2>Per Diem Receipts</h2><div class="table-wrap"><table><thead><tr><th>Tour</th><th>Date</th><th>Customer</th><th>Type</th><th>Amount</th><th>File</th><th>Status</th></tr></thead><tbody id="receiptRows"></tbody></table></div></div></div>
-</div><script>window.PAGE_SCOPE='per_diem';</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=6"></script><script src="assets/js/supabaseClient.js?v=6"></script><script src="assets/js/auth.js?v=6"></script><script src="assets/js/layout.js?v=6"></script><script src="assets/js/receipts.js?v=6"></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=10"></head><body style="visibility:hidden"><div id="app">
+<div class="receipts-workspace">
+  <div class="card">
+    <div class="receipt-list-header">
+      <div><h2>Receipts</h2><p class="muted">Filter, select, edit, or add receipts from one place.</p></div>
+      <div class="receipt-filters">
+        <label>Category<select id="receiptFilter"><option value="unprocessed">Unprocessed</option><option value="all">All</option><option value="per_diem">Per Diem</option><option value="other">Other</option><option value="processed">Processed</option></select></label>
+        <label>Tour<select id="tourFilter"><option value="all">All Tours</option></select></label>
+      </div>
+      <button class="btn" id="newReceiptBtn">Add Receipt</button>
+    </div>
+    <div id="receiptCards" class="receipt-card-list"></div>
+  </div>
+
+  <div id="receiptDetailWrap">
+    <div class="receipt-detail-empty"><div><h2>Select or Add a Receipt</h2><p>Use one receipt workflow for Per Diem and Other receipt entries. Pick the receipt category when adding or editing.</p></div></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="receiptModal">
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="receiptModalTitle">Add Receipt</h2><button class="icon-close" id="closeReceiptModal" type="button">X</button></div>
+    <div class="modal-body">
+      <form id="receiptForm" class="compact-form">
+        <input type="hidden" id="receipt_id_edit">
+        <input type="hidden" id="receipt_scope">
+        <div class="span-2 receipt-mode-toggle">
+          <button type="button" class="mode-card active" id="modePerDiem"><strong>Per Diem</strong><span>Meals/Grocery style receipts tied to a Cycle.</span></button>
+          <button type="button" class="mode-card" id="modeOther"><strong>Other</strong><span>Lodging, travel, fuel, parking, and non-per diem expenses.</span></button>
+        </div>
+        <label>Tour<select id="tour_id" required></select></label>
+        <label id="cycleWrap">Cycle<select id="cycle_id"><option value="">Select Tour first</option></select></label>
+        <label>Customer<input id="customer" required placeholder="Burger King, Shell, Hertz"></label>
+        <label>Receipt Type<select id="type_id" required></select></label>
+        <label>Date<input id="receipt_date" type="date" required></label>
+        <label>Amount<input id="amount" type="number" step="0.01" required></label>
+        <label class="span-2">Upload Receipt Copy<input id="receipt_file" type="file" accept="image/*,.pdf"></label>
+        <label class="span-2">Notes<textarea id="notes"></textarea></label>
+        <div class="actions span-2"><button class="btn" id="saveReceiptBtn">Save Receipt</button><button class="btn secondary" type="button" id="cancelReceiptBtn">Cancel</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=10"></script><script src="assets/js/supabaseClient.js?v=10"></script><script src="assets/js/auth.js?v=10"></script><script src="assets/js/layout.js?v=10"></script><script src="assets/js/receipts.js?v=10"></script></body></html>
