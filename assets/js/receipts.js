@@ -50,7 +50,7 @@ function filteredTours() {
 async function getReceiptCountsForTour(tourId) {
   const { data } = await window.usafSupabase.from('USAF_receipts').select('scope,amount').eq('tour_id', tourId);
   const rows = data || [];
-  return { perDiem: rows.filter(r => r.scope === 'per_diem').length, other: rows.filter(r => r.scope === 'other').length, total: rows.length, amount: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0) };
+  return { perDiem: rows.filter(r => r.scope === 'per_diem').length, other: rows.filter(r => r.scope === 'other').length, perDiemAmount: rows.filter(r => r.scope === 'per_diem').reduce((sum, r) => sum + Number(r.amount || 0), 0), otherAmount: rows.filter(r => r.scope === 'other').reduce((sum, r) => sum + Number(r.amount || 0), 0) };
 }
 
 async function renderTourCards() {
@@ -59,7 +59,7 @@ async function renderTourCards() {
   const cards = [];
   for (const t of tours) {
     const counts = await getReceiptCountsForTour(t.id);
-    cards.push(`<button class="receipt-tour-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${t.id}"><div><strong>${t.tour_name}</strong><small>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.status}</small></div><div class="receipt-tour-counts"><div class="receipt-count-pill"><span>Per Diem</span><strong>${counts.perDiem}</strong></div><div class="receipt-count-pill"><span>Other</span><strong>${counts.other}</strong></div><div class="receipt-count-pill"><span>Total</span><strong>${counts.total}</strong></div></div><small>Total Receipts: ${money(counts.amount)}</small></button>`);
+    cards.push(`<button class="receipt-tour-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${t.id}"><div><strong>${t.tour_name}</strong><small>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.status}</small></div><div class="receipt-tour-counts two-counts"><div class="receipt-count-pill"><span>Per Diem</span><strong>${counts.perDiem}</strong></div><div class="receipt-count-pill"><span>Other</span><strong>${counts.other}</strong></div></div><small>Per Diem: ${money(counts.perDiemAmount)} | Other: ${money(counts.otherAmount)}</small></button>`);
   }
   tourCards.innerHTML = cards.join('');
   document.querySelectorAll('.receipt-tour-card').forEach(btn => btn.addEventListener('click', () => selectTour(btn.dataset.id)));
@@ -100,11 +100,12 @@ function renderTourReceiptWorkspace() {
   tourReceiptWrap.innerHTML = `<div class="selected-tour-receipts"><div class="receipt-tour-hero"><div><h2>${t.tour_name}</h2><p>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.location || 'No location'}</p></div><div class="hero-actions"><button class="btn secondary" id="addReceiptBtn">Add Receipt</button></div></div><div class="tour-metrics"><div class="metric-mini"><span>Per Diem Receipts</span><strong>${perCount}</strong></div><div class="metric-mini"><span>Other Receipts</span><strong>${otherCount}</strong></div><div class="metric-mini"><span>Per Diem Total</span><strong>${money(receiptTotal('per_diem'))}</strong></div><div class="metric-mini"><span>Other Total</span><strong>${money(receiptTotal('other'))}</strong></div></div><div class="receipt-section-grid">${receiptSectionHtml('per_diem', 'Per Diem Receipts')}${receiptSectionHtml('other', 'Other Receipts')}</div></div>`;
   addReceiptBtn.addEventListener('click', () => openReceiptModal());
   document.querySelectorAll('[data-edit-receipt]').forEach(btn => btn.addEventListener('click', () => openReceiptModal(receiptsCache.find(r => r.id === btn.dataset.editReceipt))));
+  document.querySelectorAll('[data-delete-receipt]').forEach(btn => btn.addEventListener('click', () => deleteReceipt(btn.dataset.deleteReceipt)));
 }
 
 function receiptSectionHtml(scope, title) {
   const rows = receiptsByScope(scope);
-  const body = rows.map(r => `<div class="receipt-row"><div><strong>${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${r.USAF_receipt_types?.name || ''} ${r.USAF_cycles ? '| ' + fmtDate(r.USAF_cycles.start_date) + ' - ' + fmtDate(r.USAF_cycles.end_date) : ''}</small></div><div class="receipt-row-actions"><strong>${money(r.amount)}</strong><button class="btn small secondary" data-edit-receipt="${r.id}">Edit</button></div></div>`).join('') || '<div class="receipt-empty">No receipts in this category yet.</div>';
+  const body = rows.map(r => `<div class="receipt-row"><div><strong>${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${r.USAF_receipt_types?.name || ''} ${r.USAF_cycles ? '| ' + fmtDate(r.USAF_cycles.start_date) + ' - ' + fmtDate(r.USAF_cycles.end_date) : ''}</small></div><div class="receipt-row-actions receipt-actions-expanded"><strong>${money(r.amount)}</strong><button class="btn small secondary" data-edit-receipt="${r.id}">Edit</button><button class="btn small danger" data-delete-receipt="${r.id}">Delete</button></div></div>`).join('') || '<div class="receipt-empty">No receipts in this category yet.</div>';
   return `<div class="receipt-section"><div class="receipt-section-head"><h3>${title}</h3><span class="badge">${rows.length}</span></div><div class="receipt-row-list">${body}</div></div>`;
 }
 
@@ -217,6 +218,17 @@ async function saveReceipt(e) {
     closeReceiptModalFn();
     await selectTour(selectedTour.id);
   } catch (err) { alert(err.message); }
+}
+
+async function deleteReceipt(id) {
+  const receipt = receiptsCache.find(r => r.id === id);
+  if (!receipt) return;
+  const details = `${receipt.customer} - ${money(receipt.amount)} - ${fmtDate(receipt.receipt_date)}`;
+  const ok = confirm(`Delete this receipt?\n\n${details}\n\nThis will remove the receipt record. Uploaded file cleanup can be added later if needed.`);
+  if (!ok) return;
+  const { error } = await window.usafSupabase.from('USAF_receipts').delete().eq('id', id);
+  if (error) return alert(error.message);
+  await selectTour(selectedTour.id);
 }
 
 initReceipts();
