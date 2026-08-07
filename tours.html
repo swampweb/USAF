@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tours | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=6"></head><body style="visibility:hidden"><div id="app">
+<div class="grid cols-2">
+  <div class="card"><h2>Create Tour</h2><p>A Tour is the top-level order/date range. Add per diem cycles inside the Tour.</p><form id="tourForm" class="form-grid">
+    <label>Tour Name<input id="tour_name" required placeholder="Example: HAZMAT Inspector Refresher"></label>
+    <label>Location<input id="location_name" placeholder="Example: Sheppard AFB"></label>
+    <label>Orders Number<input id="orders_number" placeholder="Optional"></label>
+    <label>Orders Start Date<input id="orders_start_date" type="date" required></label>
+    <label>Orders End Date<input id="orders_end_date" type="date" required></label>
+    <label>Status<select id="status"><option value="active">Active</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
+    <label>Notes<textarea id="notes"></textarea></label>
+    <button class="btn">Save Tour</button>
+  </form></div>
+  <div class="card"><h2>Tour Summary</h2><p>Cycles, receipts, and voucher packages will be grouped by Tour.</p><div class="table-wrap"><table><thead><tr><th>Tour</th><th>Orders #</th><th>Dates</th><th>Status</th><th>Cycles</th><th>Total</th><th>Spent</th><th>Remaining</th></tr></thead><tbody id="tourRows"></tbody></table></div></div>
+</div>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=6"></script><script src="assets/js/supabaseClient.js?v=6"></script><script src="assets/js/auth.js?v=6"></script><script src="assets/js/layout.js?v=6"></script><script src="assets/js/tours.js?v=6"></script></body></html>
