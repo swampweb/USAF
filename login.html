@@ -11,35 +11,119 @@
     <div class="login-logo">✦</div>
     <h1>USAF Travel Tracker</h1>
     <p>Secure per diem, receipt, and voucher tracking.</p>
+
     <form id="loginForm" class="form-grid">
       <label>Email<input id="email" type="email" autocomplete="email" required /></label>
       <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
-      <button class="btn" type="submit">Sign In</button>
+      <button class="btn" type="submit" id="signInBtn">Sign In</button>
       <button class="btn secondary" type="button" id="signupBtn">Create Account</button>
     </form>
+
     <div class="message" id="message"></div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/supabaseClient.js"></script>
   <script>
     const form = document.getElementById('loginForm');
     const msg = document.getElementById('message');
+    const signInBtn = document.getElementById('signInBtn');
+    const signupBtn = document.getElementById('signupBtn');
+
+    function setBusy(isBusy, text) {
+      signInBtn.disabled = isBusy;
+      signupBtn.disabled = isBusy;
+      if (text) msg.textContent = text;
+    }
+
+    function fail(message, detail) {
+      console.error(message, detail || '');
+      msg.textContent = message;
+      setBusy(false);
+    }
+
+    function validateConfig() {
+      if (!window.USAF_CONFIG) return 'Missing assets/js/config.js';
+      if (!window.USAF_CONFIG.SUPABASE_URL || window.USAF_CONFIG.SUPABASE_URL.includes('your-project') || window.USAF_CONFIG.SUPABASE_URL.includes('PASTE_')) return 'Supabase URL is still a placeholder.';
+      if (window.USAF_CONFIG.SUPABASE_URL.includes('/rest/v1')) return 'Supabase URL is wrong. Remove /rest/v1/ from config.js.';
+      if (!window.USAF_CONFIG.SUPABASE_ANON_KEY || window.USAF_CONFIG.SUPABASE_ANON_KEY === 'eyJ...' || window.USAF_CONFIG.SUPABASE_ANON_KEY.includes('PASTE_')) return 'Anon public key is still a placeholder.';
+      if (!window.usafSupabase) return 'Supabase client did not load. Check browser console.';
+      return null;
+    }
+
+    async function withTimeout(promise, ms, timeoutMessage) {
+      let timeout;
+      const timer = new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+      });
+      try {
+        return await Promise.race([promise, timer]);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      msg.textContent = 'Signing in...';
+      const configError = validateConfig();
+      if (configError) return fail(configError);
+
+      setBusy(true, 'Signing in...');
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      const { error } = await window.usafSupabase.auth.signInWithPassword({ email, password });
-      if (error) { msg.textContent = error.message; return; }
-      window.location.href = 'dashboard.html';
+
+      try {
+        const result = await withTimeout(
+          window.usafSupabase.auth.signInWithPassword({ email, password }),
+          12000,
+          'Login timed out. Check Supabase Auth URL settings and browser console.'
+        );
+
+        if (result.error) return fail(result.error.message, result.error);
+        if (!result.data || !result.data.session) return fail('No session returned. Check that this user exists in Supabase Authentication > Users.');
+
+        msg.textContent = 'Login successful. Opening dashboard...';
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        fail(err.message || 'Login failed.', err);
+      }
     });
-    document.getElementById('signupBtn').addEventListener('click', async () => {
-      msg.textContent = 'Creating account...';
+
+    signupBtn.addEventListener('click', async () => {
+      const configError = validateConfig();
+      if (configError) return fail(configError);
+
+      setBusy(true, 'Creating account...');
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      const { error } = await window.usafSupabase.auth.signUp({ email, password, options: { data: { display_name: email } } });
-      msg.textContent = error ? error.message : 'Account created. If email confirmation is on, confirm your email, then sign in.';
+
+      if (!email || !password) return fail('Enter email and password first.');
+
+      try {
+        const result = await withTimeout(
+          window.usafSupabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: 'https://swampweb.github.io/USAF/login.html',
+              data: { display_name: email }
+            }
+          }),
+          12000,
+          'Create account timed out. Check Supabase Auth URL settings and browser console.'
+        );
+
+        if (result.error) return fail(result.error.message, result.error);
+        msg.textContent = result.data.session
+          ? 'Account created and signed in. Opening dashboard...'
+          : 'Account created. If email confirmation is on, confirm the email, then sign in.';
+
+        if (result.data.session) window.location.href = 'dashboard.html';
+        setBusy(false);
+      } catch (err) {
+        fail(err.message || 'Create account failed.', err);
+      }
     });
   </script>
 </body>
