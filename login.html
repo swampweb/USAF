@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | USAF Travel Tracker</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">✦</div>
+    <h1>USAF Travel Tracker</h1>
+    <p>Secure per diem, receipt, and voucher tracking.</p>
+    <form id="loginForm" class="form-grid">
+      <label>Email<input id="email" type="email" autocomplete="email" required /></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
+      <button class="btn" type="submit">Sign In</button>
+      <button class="btn secondary" type="button" id="signupBtn">Create Account</button>
+    </form>
+    <div class="message" id="message"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/supabaseClient.js"></script>
+  <script>
+    const form = document.getElementById('loginForm');
+    const msg = document.getElementById('message');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = 'Signing in...';
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const { error } = await window.usafSupabase.auth.signInWithPassword({ email, password });
+      if (error) { msg.textContent = error.message; return; }
+      window.location.href = 'dashboard.html';
+    });
+    document.getElementById('signupBtn').addEventListener('click', async () => {
+      msg.textContent = 'Creating account...';
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const { error } = await window.usafSupabase.auth.signUp({ email, password, options: { data: { display_name: email } } });
+      msg.textContent = error ? error.message : 'Account created. If email confirmation is on, confirm your email, then sign in.';
+    });
+  </script>
+</body>
+</html>
