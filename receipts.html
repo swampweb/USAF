@@ -1,19 +1,12 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=10"></head><body style="visibility:hidden"><div id="app">
-<div class="receipts-workspace">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=11"></head><body style="visibility:hidden"><div id="app">
+<div class="receipts-tour-workspace">
   <div class="card">
-    <div class="receipt-list-header">
-      <div><h2>Receipts</h2><p class="muted">Filter, select, edit, or add receipts from one place.</p></div>
-      <div class="receipt-filters">
-        <label>Category<select id="receiptFilter"><option value="unprocessed">Unprocessed</option><option value="all">All</option><option value="per_diem">Per Diem</option><option value="other">Other</option><option value="processed">Processed</option></select></label>
-        <label>Tour<select id="tourFilter"><option value="all">All Tours</option></select></label>
-      </div>
-      <button class="btn" id="newReceiptBtn">Add Receipt</button>
-    </div>
-    <div id="receiptCards" class="receipt-card-list"></div>
+    <div class="toolbar"><div><h2>Select Tour</h2><p class="muted">Receipts are managed by Tour. Pick a Tour to add and review Per Diem and Other receipts.</p></div></div>
+    <label style="margin-bottom:12px">Tour Filter<select id="tourStatusFilter"><option value="active">Active</option><option value="inactive">Inactive</option><option value="all">All</option></select></label>
+    <div id="tourCards" class="receipt-tour-list"></div>
   </div>
-
-  <div id="receiptDetailWrap">
-    <div class="receipt-detail-empty"><div><h2>Select or Add a Receipt</h2><p>Use one receipt workflow for Per Diem and Other receipt entries. Pick the receipt category when adding or editing.</p></div></div>
+  <div id="tourReceiptWrap">
+    <div class="receipts-tour-empty"><div><h2>Select a Tour</h2><p>After selecting a Tour, this area will show Per Diem receipts, Other receipts, totals, and the Add Receipt button.</p></div></div>
   </div>
 </div>
 
@@ -24,12 +17,12 @@
       <form id="receiptForm" class="compact-form">
         <input type="hidden" id="receipt_id_edit">
         <input type="hidden" id="receipt_scope">
+        <input type="hidden" id="tour_id">
         <div class="span-2 receipt-mode-toggle">
           <button type="button" class="mode-card active" id="modePerDiem"><strong>Per Diem</strong><span>Meals/Grocery style receipts tied to a Cycle.</span></button>
-          <button type="button" class="mode-card" id="modeOther"><strong>Other</strong><span>Lodging, travel, fuel, parking, and non-per diem expenses.</span></button>
+          <button type="button" class="mode-card" id="modeOther"><strong>Other</strong><span>Lodging, fuel, parking, rental car, and non-per diem expenses.</span></button>
         </div>
-        <label>Tour<select id="tour_id" required></select></label>
-        <label id="cycleWrap">Cycle<select id="cycle_id"><option value="">Select Tour first</option></select></label>
+        <label id="cycleWrap" class="span-2">Cycle<select id="cycle_id"><option value="">Select Cycle</option></select></label>
         <label>Customer<input id="customer" required placeholder="Burger King, Shell, Hertz"></label>
         <label>Receipt Type<select id="type_id" required></select></label>
         <label>Date<input id="receipt_date" type="date" required></label>
@@ -41,4 +34,4 @@
     </div>
   </div>
 </div>
-</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=10"></script><script src="assets/js/supabaseClient.js?v=10"></script><script src="assets/js/auth.js?v=10"></script><script src="assets/js/layout.js?v=10"></script><script src="assets/js/receipts.js?v=10"></script></body></html>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=11"></script><script src="assets/js/supabaseClient.js?v=11"></script><script src="assets/js/auth.js?v=11"></script><script src="assets/js/layout.js?v=11"></script><script src="assets/js/receipts.js?v=11"></script></body></html>

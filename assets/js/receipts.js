@@ -1,116 +1,139 @@
-let selectedReceipt = null;
-let receiptsCache = [];
 let toursCache = [];
+let selectedTour = null;
+let receiptsCache = [];
 let typesCache = [];
 let cyclesCache = [];
 let currentScope = 'per_diem';
 
+function activeStatus(status) { return status === 'active' || status === 'planned'; }
 function scopeLabel(scope) { return scope === 'per_diem' ? 'Per Diem' : 'Other'; }
-function isProcessed(r) { return r.is_processed === true; }
+function receiptsByScope(scope) { return receiptsCache.filter(r => r.scope === scope); }
+function receiptTotal(scope) { return receiptsByScope(scope).reduce((sum, r) => sum + Number(r.amount || 0), 0); }
 
 async function initReceipts() {
   await renderLayout('Receipts');
-  bindReceiptEvents();
-  await loadTours();
+  bindEvents();
   await loadTypes();
-  await loadReceipts();
+  await loadTours();
 }
 
-function bindReceiptEvents() {
-  receiptFilter.addEventListener('change', renderReceiptCards);
-  tourFilter.addEventListener('change', renderReceiptCards);
-  newReceiptBtn.addEventListener('click', () => openReceiptModal());
+function bindEvents() {
+  tourStatusFilter.addEventListener('change', renderTourCards);
   closeReceiptModal.addEventListener('click', closeReceiptModalFn);
   cancelReceiptBtn.addEventListener('click', closeReceiptModalFn);
   receiptForm.addEventListener('submit', saveReceipt);
   modePerDiem.addEventListener('click', () => setScope('per_diem'));
   modeOther.addEventListener('click', () => setScope('other'));
-  tour_id.addEventListener('change', async () => { await populateCyclesForTour(); });
 }
 
 async function loadTours() {
-  const { data, error } = await window.usafSupabase.from('USAF_tours').select('id,tour_name,orders_start_date,orders_end_date,status').order('orders_start_date', { ascending:false });
-  if (error) return alert(error.message);
+  const { data, error } = await window.usafSupabase
+    .from('USAF_tour_summary')
+    .select('*')
+    .order('orders_start_date', { ascending:false });
+  if (error) { tourCards.innerHTML = `<div class="empty-state">${error.message}</div>`; return; }
   toursCache = data || [];
-  const options = toursCache.map(t => `<option value="${t.id}">${t.tour_name} (${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)})</option>`).join('');
-  tourFilter.innerHTML = '<option value="all">All Tours</option>' + options;
-  tour_id.innerHTML = '<option value="">Select Tour</option>' + options;
+  renderTourCards();
+}
+
+function filteredTours() {
+  const filter = tourStatusFilter.value;
+  if (filter === 'all') return toursCache;
+  if (filter === 'active') return toursCache.filter(t => activeStatus(t.status));
+  return toursCache.filter(t => !activeStatus(t.status));
+}
+
+async function getReceiptCountsForTour(tourId) {
+  const { data } = await window.usafSupabase
+    .from('USAF_receipts')
+    .select('scope,amount')
+    .eq('tour_id', tourId);
+  const rows = data || [];
+  return {
+    perDiem: rows.filter(r => r.scope === 'per_diem').length,
+    other: rows.filter(r => r.scope === 'other').length,
+    total: rows.length,
+    amount: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0)
+  };
+}
+
+async function renderTourCards() {
+  const tours = filteredTours();
+  if (!tours.length) { tourCards.innerHTML = '<div class="empty-state">No Tours match this filter.</div>'; return; }
+  const cards = [];
+  for (const t of tours) {
+    const counts = await getReceiptCountsForTour(t.id);
+    cards.push(`<button class="receipt-tour-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${t.id}">
+      <div><strong>${t.tour_name}</strong><small>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.status}</small></div>
+      <div class="receipt-tour-counts">
+        <div class="receipt-count-pill"><span>Per Diem</span><strong>${counts.perDiem}</strong></div>
+        <div class="receipt-count-pill"><span>Other</span><strong>${counts.other}</strong></div>
+        <div class="receipt-count-pill"><span>Total</span><strong>${counts.total}</strong></div>
+      </div>
+      <small>Total Receipts: ${money(counts.amount)}</small>
+    </button>`);
+  }
+  tourCards.innerHTML = cards.join('');
+  document.querySelectorAll('.receipt-tour-card').forEach(btn => btn.addEventListener('click', () => selectTour(btn.dataset.id)));
+}
+
+async function selectTour(tourId) {
+  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).single();
+  if (error) return alert(error.message);
+  selectedTour = data;
+  await loadTourReceipts(tourId);
+  await loadCycles(tourId);
+  renderTourReceiptWorkspace();
+  await renderTourCards();
+}
+
+async function loadTourReceipts(tourId) {
+  const { data, error } = await window.usafSupabase
+    .from('USAF_receipts')
+    .select('*, USAF_receipt_types(name), USAF_cycles(start_date,end_date)')
+    .eq('tour_id', tourId)
+    .order('receipt_date', { ascending:false });
+  if (error) { alert(error.message); receiptsCache = []; return; }
+  receiptsCache = data || [];
 }
 
 async function loadTypes() {
   const { data, error } = await window.usafSupabase.from('USAF_receipt_types').select('*').eq('is_active', true).order('sort_order').order('name');
   if (error) return alert(error.message);
   typesCache = data || [];
-  populateReceiptTypes();
 }
 
-function populateReceiptTypes() {
-  const valid = typesCache.filter(t => (t.applies_to || []).includes(currentScope));
-  type_id.innerHTML = valid.map(t => `<option value="${t.id}">${t.name}</option>`).join('') || '<option value="">No active types for this category</option>';
-}
-
-async function populateCyclesForTour(selectedCycleId = '') {
-  if (currentScope !== 'per_diem') return;
-  if (!tour_id.value) { cycle_id.innerHTML = '<option value="">Select Tour first</option>'; return; }
-  const { data, error } = await window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tour_id.value).neq('status','cancelled').order('start_date');
-  if (error) return alert(error.message);
+async function loadCycles(tourId) {
+  const { data, error } = await window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tourId).neq('status','cancelled').order('start_date');
+  if (error) { alert(error.message); cyclesCache = []; return; }
   cyclesCache = data || [];
-  cycle_id.innerHTML = '<option value="">Select Cycle</option>' + cyclesCache.map(c => `<option value="${c.id}">${fmtDate(c.start_date)} - ${fmtDate(c.end_date)} (${money(c.per_diem_per_day)}/day)</option>`).join('');
-  if (selectedCycleId) cycle_id.value = selectedCycleId;
 }
 
-async function loadReceipts() {
-  const { data, error } = await window.usafSupabase
-    .from('USAF_receipts')
-    .select('*, USAF_receipt_types(name), USAF_tours(tour_name), USAF_cycles(start_date,end_date)')
-    .order('receipt_date', { ascending:false });
-  if (error) {
-    receiptCards.innerHTML = `<div class="empty-state">${error.message}</div>`;
-    return;
-  }
-  receiptsCache = data || [];
-  renderReceiptCards();
-  if (selectedReceipt) {
-    const fresh = receiptsCache.find(r => r.id === selectedReceipt.id);
-    if (fresh) selectReceipt(fresh.id); else selectedReceipt = null;
-  }
-}
-
-function filteredReceipts() {
-  let rows = receiptsCache.slice();
-  const f = receiptFilter.value;
-  const tour = tourFilter.value;
-  if (f === 'unprocessed') rows = rows.filter(r => !isProcessed(r));
-  if (f === 'processed') rows = rows.filter(r => isProcessed(r));
-  if (f === 'per_diem') rows = rows.filter(r => r.scope === 'per_diem');
-  if (f === 'other') rows = rows.filter(r => r.scope === 'other');
-  if (tour && tour !== 'all') rows = rows.filter(r => r.tour_id === tour);
-  return rows;
-}
-
-function renderReceiptCards() {
-  const rows = filteredReceipts();
-  receiptCards.innerHTML = rows.map(r => `
-    <button class="receipt-select-card ${selectedReceipt?.id === r.id ? 'active' : ''}" data-id="${r.id}">
-      <div class="receipt-card-top"><strong>${r.customer}</strong><strong>${money(r.amount)}</strong></div>
-      <div class="receipt-card-meta"><span class="badge">${scopeLabel(r.scope)}</span><span>${fmtDate(r.receipt_date)}</span><span>${r.USAF_receipt_types?.name || ''}</span></div>
-      <div class="receipt-card-meta"><span>${r.USAF_tours?.tour_name || 'No Tour'}</span><span>${r.is_processed ? 'Processed' : 'Open'}</span></div>
-    </button>`).join('') || '<div class="empty-state">No receipts match this filter.</div>';
-  document.querySelectorAll('.receipt-select-card').forEach(btn => btn.addEventListener('click', () => selectReceipt(btn.dataset.id)));
-}
-
-function selectReceipt(id) {
-  selectedReceipt = receiptsCache.find(r => r.id === id);
-  if (!selectedReceipt) return;
-  renderReceiptCards();
-  const r = selectedReceipt;
-  receiptDetailWrap.innerHTML = `<div class="receipt-detail">
-    <div class="tour-detail-hero"><div><h2>${r.customer}</h2><p>${scopeLabel(r.scope)} | ${fmtDate(r.receipt_date)} | ${r.USAF_tours?.tour_name || 'No Tour'}</p></div><div class="hero-actions"><button class="btn secondary" id="editReceiptBtn">Edit Receipt</button><button class="btn secondary" id="toggleProcessedBtn">${r.is_processed ? 'Mark Open' : 'Mark Processed'}</button></div></div>
-    <div class="tour-metrics"><div class="metric-mini"><span>Amount</span><strong>${money(r.amount)}</strong></div><div class="metric-mini"><span>Category</span><strong>${scopeLabel(r.scope)}</strong></div><div class="metric-mini"><span>Type</span><strong>${r.USAF_receipt_types?.name || ''}</strong></div><div class="metric-mini"><span>Status</span><strong>${r.is_processed ? 'Processed' : 'Open'}</strong></div></div>
-    <div class="card" style="box-shadow:none"><h2>Receipt Details</h2><p><strong>Tour:</strong> ${r.USAF_tours?.tour_name || ''}</p><p><strong>Cycle:</strong> ${r.USAF_cycles ? `${fmtDate(r.USAF_cycles.start_date)} - ${fmtDate(r.USAF_cycles.end_date)}` : 'Not required'}</p><p><strong>File:</strong> ${r.file_name || 'No file uploaded'}</p><p><strong>Notes:</strong> ${r.notes || ''}</p></div>
+function renderTourReceiptWorkspace() {
+  const t = selectedTour;
+  const perCount = receiptsByScope('per_diem').length;
+  const otherCount = receiptsByScope('other').length;
+  tourReceiptWrap.innerHTML = `<div class="selected-tour-receipts">
+    <div class="receipt-tour-hero"><div><h2>${t.tour_name}</h2><p>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.location || 'No location'}</p></div><div class="hero-actions"><button class="btn secondary" id="addReceiptBtn">Add Receipt</button></div></div>
+    <div class="tour-metrics">
+      <div class="metric-mini"><span>Per Diem Receipts</span><strong>${perCount}</strong></div>
+      <div class="metric-mini"><span>Other Receipts</span><strong>${otherCount}</strong></div>
+      <div class="metric-mini"><span>Per Diem Total</span><strong>${money(receiptTotal('per_diem'))}</strong></div>
+      <div class="metric-mini"><span>Other Total</span><strong>${money(receiptTotal('other'))}</strong></div>
+    </div>
+    <div class="receipt-section-grid">
+      ${receiptSectionHtml('per_diem', 'Per Diem Receipts')}
+      ${receiptSectionHtml('other', 'Other Receipts')}
+    </div>
   </div>`;
-  editReceiptBtn.addEventListener('click', () => openReceiptModal(r));
-  toggleProcessedBtn.addEventListener('click', toggleProcessed);
+  addReceiptBtn.addEventListener('click', () => openReceiptModal());
+  document.querySelectorAll('[data-edit-receipt]').forEach(btn => btn.addEventListener('click', () => openReceiptModal(receiptsCache.find(r => r.id === btn.dataset.editReceipt))));
+}
+
+function receiptSectionHtml(scope, title) {
+  const rows = receiptsByScope(scope);
+  const body = rows.map(r => `<div class="receipt-row"><div><strong>${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${r.USAF_receipt_types?.name || ''} ${r.USAF_cycles ? '| ' + fmtDate(r.USAF_cycles.start_date) + ' - ' + fmtDate(r.USAF_cycles.end_date) : ''}</small></div><div class="receipt-row-actions"><strong>${money(r.amount)}</strong><button class="btn small secondary" data-edit-receipt="${r.id}">Edit</button></div></div>`).join('') || '<div class="receipt-empty">No receipts in this category yet.</div>';
+  return `<div class="receipt-section"><div class="receipt-section-head"><h3>${title}</h3><span class="badge">${rows.length}</span></div><div class="receipt-row-list">${body}</div></div>`;
 }
 
 function setScope(scope) {
@@ -119,25 +142,37 @@ function setScope(scope) {
   modePerDiem.classList.toggle('active', scope === 'per_diem');
   modeOther.classList.toggle('active', scope === 'other');
   cycleWrap.classList.toggle('hidden', scope !== 'per_diem');
-  if (scope !== 'per_diem') cycle_id.value = '';
   populateReceiptTypes();
-  populateCyclesForTour();
+  populateCycles();
 }
 
-async function openReceiptModal(receipt = null) {
+function populateReceiptTypes(selectedTypeId = '') {
+  const valid = typesCache.filter(t => (t.applies_to || []).includes(currentScope));
+  type_id.innerHTML = valid.map(t => `<option value="${t.id}">${t.name}</option>`).join('') || '<option value="">No active types for this category</option>';
+  if (selectedTypeId) type_id.value = selectedTypeId;
+}
+
+function populateCycles(selectedCycleId = '') {
+  if (currentScope !== 'per_diem') return;
+  cycle_id.innerHTML = '<option value="">Select Cycle</option>' + cyclesCache.map(c => `<option value="${c.id}">${fmtDate(c.start_date)} - ${fmtDate(c.end_date)} (${money(c.per_diem_per_day)}/day)</option>`).join('');
+  if (selectedCycleId) cycle_id.value = selectedCycleId;
+}
+
+function openReceiptModal(receipt = null) {
+  if (!selectedTour) return alert('Select a Tour first.');
   receiptForm.reset();
   receipt_id_edit.value = receipt?.id || '';
+  tour_id.value = selectedTour.id;
   receiptModalTitle.textContent = receipt ? 'Edit Receipt' : 'Add Receipt';
   saveReceiptBtn.textContent = receipt ? 'Update Receipt' : 'Save Receipt';
   setScope(receipt?.scope || 'per_diem');
   if (receipt) {
-    tour_id.value = receipt.tour_id || '';
     customer.value = receipt.customer || '';
     receipt_date.value = receipt.receipt_date || '';
     amount.value = receipt.amount || '';
     notes.value = receipt.notes || '';
-    await populateCyclesForTour(receipt.cycle_id || '');
-    type_id.value = receipt.type_id || '';
+    populateReceiptTypes(receipt.type_id || '');
+    populateCycles(receipt.cycle_id || '');
   }
   receiptModal.classList.add('open');
 }
@@ -156,28 +191,18 @@ async function uploadFile(userId, file) {
 async function saveReceipt(e) {
   e.preventDefault();
   const user = await getCurrentUser();
-  if (!tour_id.value) return alert('Select a Tour first.');
+  if (!selectedTour) return alert('Select a Tour first.');
   if (currentScope === 'per_diem' && !cycle_id.value) return alert('Select a Cycle for Per Diem receipts.');
   if (!type_id.value) return alert('Select a Receipt Type.');
   try {
     const fileData = await uploadFile(user.id, receipt_file.files[0]);
-    const payload = { user_id:user.id, tour_id:tour_id.value, scope:currentScope, cycle_id: currentScope === 'per_diem' ? cycle_id.value : null, customer:customer.value.trim(), type_id:type_id.value, receipt_date:receipt_date.value, amount:Number(amount.value), notes:notes.value.trim() || null, ...fileData };
+    const payload = { user_id:user.id, tour_id:selectedTour.id, scope:currentScope, cycle_id: currentScope === 'per_diem' ? cycle_id.value : null, customer:customer.value.trim(), type_id:type_id.value, receipt_date:receipt_date.value, amount:Number(amount.value), notes:notes.value.trim() || null, ...fileData };
     const id = receipt_id_edit.value;
     const result = id ? await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', id) : await window.usafSupabase.from('USAF_receipts').insert(payload);
     if (result.error) throw result.error;
     closeReceiptModalFn();
-    await loadReceipts();
-  } catch(err) { alert(err.message); }
-}
-
-async function toggleProcessed() {
-  if (!selectedReceipt) return;
-  const user = await getCurrentUser();
-  const processed = !selectedReceipt.is_processed;
-  const payload = { is_processed: processed, processed_at: processed ? new Date().toISOString() : null, processed_by: processed ? user.id : null };
-  const { error } = await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', selectedReceipt.id);
-  if (error) return alert(error.message);
-  await loadReceipts();
+    await selectTour(selectedTour.id);
+  } catch (err) { alert(err.message); }
 }
 
 initReceipts();
