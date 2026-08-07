@@ -225,3 +225,7 @@ td.actions { white-space: nowrap; }
 
 /* v15 attachment cleanup */
 .attachment-pill{font-size:18px!important;padding:2px 6px!important;background:transparent!important;border:none!important;color:#1d4ed8!important;font-weight:900}.attachment-pill::after{content:""}
+
+/* v16 force hide any leftover receipt row View buttons */
+button[data-view-receipt] { display: none !important; }
+.attachment-pill { font-size: 22px !important; line-height: 1 !important; padding: 0 6px 0 0 !important; background: transparent !important; color: #1d4ed8 !important; }
