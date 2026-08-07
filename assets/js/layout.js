@@ -88,6 +88,8 @@ async function renderLayout(activeTitle) {
       </header>
       <section class="page-content">${content}</section>
     </main>`;
+
+  showProtectedPage();
 }
 
 function money(value) {
