@@ -10,7 +10,7 @@ const USER_LINKS = [
   { label: "Dashboard", href: "dashboard.html", icon: "home" },
   { label: "Tours", href: "tours.html", icon: "folder" },
   { label: "Receipts", href: "receipts.html", icon: "receipt" },
-  { label: "Voucher / Downloads", href: "voucher-downloads.html", icon: "download" },
+  { label: "Voucher Packages", href: "voucher-downloads.html", icon: "download" },
   { label: "Reports", href: "reports.html", icon: "bar-chart" }
 ];
 

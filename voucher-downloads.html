@@ -1,1 +1,19 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Voucher Downloads | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=6"></head><body style="visibility:hidden"><div id="app"><div class="grid cols-2"><div class="card"><h2>Create Voucher Package</h2><p>Select a Tour and date range. Matching unprocessed receipt records will be attached to the voucher and marked processed.</p><form id="voucherForm" class="form-grid"><label>Tour<select id="tour_id" required></select></label><label>From<input id="date_from" type="date" required></label><label>To<input id="date_to" type="date" required></label><button class="btn">Create Voucher Record</button></form></div><div class="card"><h2>Download History</h2><div class="table-wrap"><table><thead><tr><th>Tour</th><th>Date Range</th><th>Receipts</th><th>Total</th><th>Status</th><th>Created</th></tr></thead><tbody id="historyRows"></tbody></table></div></div></div></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=6"></script><script src="assets/js/supabaseClient.js?v=6"></script><script src="assets/js/auth.js?v=6"></script><script src="assets/js/layout.js?v=6"></script><script src="assets/js/voucher.js?v=6"></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Voucher Packages | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=17"></head><body style="visibility:hidden"><div id="app">
+<div class="voucher-workspace">
+  <div class="card">
+    <div class="toolbar"><div><h2>Select Tour</h2><p class="muted">Voucher packages are built from open receipts inside a Tour.</p></div></div>
+    <label style="margin-bottom:12px">Tour Filter<select id="tourStatusFilter"><option value="active">Active</option><option value="inactive">Inactive</option><option value="all">All</option></select></label>
+    <div id="tourCards" class="voucher-tour-list"></div>
+  </div>
+  <div id="voucherWorkspace">
+    <div class="voucher-empty"><div><h2>Select a Tour</h2><p>Select a Tour to preview open receipts, create a voucher package, and view package history.</p></div></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="packageModal">
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="packageModalTitle">Voucher Package</h2><button class="icon-close" id="closePackageModal" type="button">X</button></div>
+    <div class="modal-body" id="packageModalBody"></div>
+  </div>
+</div>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=17"></script><script src="assets/js/supabaseClient.js?v=17"></script><script src="assets/js/auth.js?v=17"></script><script src="assets/js/layout.js?v=17"></script><script src="assets/js/voucher.js?v=17"></script></body></html>
