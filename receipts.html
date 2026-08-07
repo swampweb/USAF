@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=11"></head><body style="visibility:hidden"><div id="app">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipts | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=12"></head><body style="visibility:hidden"><div id="app">
 <div class="receipts-tour-workspace">
   <div class="card">
     <div class="toolbar"><div><h2>Select Tour</h2><p class="muted">Receipts are managed by Tour. Pick a Tour to add and review Per Diem and Other receipts.</p></div></div>
@@ -18,15 +18,20 @@
         <input type="hidden" id="receipt_id_edit">
         <input type="hidden" id="receipt_scope">
         <input type="hidden" id="tour_id">
+        <input type="hidden" id="cycle_id">
         <div class="span-2 receipt-mode-toggle">
           <button type="button" class="mode-card active" id="modePerDiem"><strong>Per Diem</strong><span>Meals/Grocery style receipts tied to a Cycle.</span></button>
           <button type="button" class="mode-card" id="modeOther"><strong>Other</strong><span>Lodging, fuel, parking, rental car, and non-per diem expenses.</span></button>
         </div>
-        <label id="cycleWrap" class="span-2">Cycle<select id="cycle_id"><option value="">Select Cycle</option></select></label>
+        <div id="cycleWrap" class="span-2 receipt-form-section">
+          <div class="receipt-form-section-title">Choose Cycle</div>
+          <div id="cycleCards" class="cycle-card-grid"></div>
+          <div id="cycleDateHelp" class="date-help">Choose a cycle to limit the receipt date range.</div>
+        </div>
         <label>Customer<input id="customer" required placeholder="Burger King, Shell, Hertz"></label>
         <label>Receipt Type<select id="type_id" required></select></label>
-        <label>Date<input id="receipt_date" type="date" required></label>
-        <label>Amount<input id="amount" type="number" step="0.01" required></label>
+        <label>Date<input id="receipt_date" type="date" required><span id="dateRangeHelp" class="date-help"></span></label>
+        <label>Amount<div class="currency-input-wrap"><input id="amount" type="text" inputmode="decimal" required placeholder="0.00"></div></label>
         <label class="span-2">Upload Receipt Copy<input id="receipt_file" type="file" accept="image/*,.pdf"></label>
         <label class="span-2">Notes<textarea id="notes"></textarea></label>
         <div class="actions span-2"><button class="btn" id="saveReceiptBtn">Save Receipt</button><button class="btn secondary" type="button" id="cancelReceiptBtn">Cancel</button></div>
@@ -34,4 +39,4 @@
     </div>
   </div>
 </div>
-</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=11"></script><script src="assets/js/supabaseClient.js?v=11"></script><script src="assets/js/auth.js?v=11"></script><script src="assets/js/layout.js?v=11"></script><script src="assets/js/receipts.js?v=11"></script></body></html>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=12"></script><script src="assets/js/supabaseClient.js?v=12"></script><script src="assets/js/auth.js?v=12"></script><script src="assets/js/layout.js?v=12"></script><script src="assets/js/receipts.js?v=12"></script></body></html>

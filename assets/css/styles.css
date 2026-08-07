@@ -190,3 +190,18 @@ td.actions { white-space: nowrap; }
 .receipt-tour-hero p { margin: 0; opacity: .88; }
 @media (max-width: 1120px) { .receipts-tour-workspace { grid-template-columns: 1fr; } .receipt-section-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .receipt-tour-hero { flex-direction: column; } .receipt-tour-counts { grid-template-columns: 1fr; } .receipt-row { grid-template-columns: 1fr; } }
+
+/* Receipt Entry Cleanup v12 */
+.cycle-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cycle-pick-card { border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 12px; cursor: pointer; text-align: left; color: var(--text); display: grid; gap: 4px; }
+.cycle-pick-card:hover, .cycle-pick-card.active { border-color: var(--primary); background: #eff8ff; box-shadow: 0 8px 18px rgba(12,33,66,.08); }
+.cycle-pick-card strong { font-size: 14px; }
+.cycle-pick-card span { color: var(--muted); font-size: 12px; }
+.cycle-pick-card .cycle-total { color: var(--primary); font-weight: 900; }
+.currency-input-wrap { position: relative; }
+.currency-input-wrap::before { content: "$"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 900; z-index: 1; }
+.currency-input-wrap input { padding-left: 30px; }
+.date-help { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.receipt-form-section { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #f8fafc; }
+.receipt-form-section-title { font-weight: 900; margin-bottom: 10px; color: var(--text); }
+@media (max-width: 700px) { .cycle-card-grid { grid-template-columns: 1fr; } }
