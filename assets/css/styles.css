@@ -85,3 +85,20 @@ tr:last-child td { border-bottom: 0; }
 .badge.success { background: #ecfdf3; color: var(--success); }
 .badge.warning { background: #fffaeb; color: var(--warning); }
 @media (max-width: 980px) { #app { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; } .grid.cols-2,.grid.cols-3,.grid.cols-4 { grid-template-columns: 1fr; } .topbar { flex-direction: column; align-items: flex-start; } }
+
+/* USAF Tour/Cycle cleanup v7 */
+.muted { color: var(--muted); font-size: 13px; margin: 0; }
+.compact-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; align-items: end; }
+.compact-form .span-2 { grid-column: span 2; }
+.compact-form label { margin: 0; }
+.compact-form textarea { min-height: 70px; }
+.inline-cycle-form { grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 14px; background: #f8fafc; border: 1px solid var(--line); border-radius: 16px; }
+.inline-cycle-form .span-2 { grid-column: span 2; }
+.tour-card-list { display: grid; gap: 10px; max-height: 430px; overflow: auto; padding-right: 4px; }
+.tour-select-card { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 15px; padding: 13px; display: flex; justify-content: space-between; gap: 12px; text-align: left; cursor: pointer; color: var(--text); }
+.tour-select-card:hover, .tour-select-card.active { border-color: var(--primary); background: #eff8ff; box-shadow: 0 8px 18px rgba(12,33,66,.08); }
+.tour-select-card strong { display: block; font-size: 15px; }
+.tour-select-card span { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+.tour-card-stats { text-align: right; white-space: nowrap; }
+.empty-state { padding: 18px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); background: #f8fafc; }
+@media (max-width: 980px) { .compact-form, .inline-cycle-form { grid-template-columns: 1fr; } .compact-form .span-2, .inline-cycle-form .span-2 { grid-column: span 1; } .tour-select-card { flex-direction: column; } .tour-card-stats { text-align: left; } }

@@ -1,15 +1,38 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tours | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=6"></head><body style="visibility:hidden"><div id="app">
-<div class="grid cols-2">
-  <div class="card"><h2>Create Tour</h2><p>A Tour is the top-level order/date range. Add per diem cycles inside the Tour.</p><form id="tourForm" class="form-grid">
-    <label>Tour Name<input id="tour_name" required placeholder="Example: HAZMAT Inspector Refresher"></label>
-    <label>Location<input id="location_name" placeholder="Example: Sheppard AFB"></label>
-    <label>Orders Number<input id="orders_number" placeholder="Optional"></label>
-    <label>Orders Start Date<input id="orders_start_date" type="date" required></label>
-    <label>Orders End Date<input id="orders_end_date" type="date" required></label>
-    <label>Status<select id="status"><option value="active">Active</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
-    <label>Notes<textarea id="notes"></textarea></label>
-    <button class="btn">Save Tour</button>
-  </form></div>
-  <div class="card"><h2>Tour Summary</h2><p>Cycles, receipts, and voucher packages will be grouped by Tour.</p><div class="table-wrap"><table><thead><tr><th>Tour</th><th>Orders #</th><th>Dates</th><th>Status</th><th>Cycles</th><th>Total</th><th>Spent</th><th>Remaining</th></tr></thead><tbody id="tourRows"></tbody></table></div></div>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tours | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=7"></head><body style="visibility:hidden"><div id="app">
+<div class="grid cols-2 tour-layout">
+  <div class="card">
+    <div class="toolbar"><div><h2>Create / Select Tour</h2><p class="muted">Create a Tour, then select a Tour to manage its cycles below.</p></div></div>
+    <form id="tourForm" class="compact-form">
+      <label class="span-2">Tour Name<input id="tour_name" required placeholder="Example: HAZMAT Inspector Refresher"></label>
+      <label>Location<input id="location_name" placeholder="Example: Sheppard AFB"></label>
+      <label>Orders Number<input id="orders_number" placeholder="Optional"></label>
+      <label>Start Date<input id="orders_start_date" type="date" required></label>
+      <label>End Date<input id="orders_end_date" type="date" required></label>
+      <label>Status<select id="status"><option value="active">Active</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
+      <label class="span-2">Notes<textarea id="notes"></textarea></label>
+      <div class="actions span-2"><button class="btn">Save Tour</button><button class="btn secondary" type="button" id="clearTourBtn">Clear</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <div class="toolbar"><div><h2>Existing Tours</h2><p class="muted">Pick a Tour to see and add cycles.</p></div></div>
+    <div id="tourCards" class="tour-card-list"></div>
+  </div>
 </div>
-</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=6"></script><script src="assets/js/supabaseClient.js?v=6"></script><script src="assets/js/auth.js?v=6"></script><script src="assets/js/layout.js?v=6"></script><script src="assets/js/tours.js?v=6"></script></body></html>
+
+<div class="card" style="margin-top:18px" id="selectedTourPanel">
+  <div class="toolbar">
+    <div><h2 id="selectedTourTitle">Select a Tour</h2><p id="selectedTourMeta" class="muted">Cycles will show here after selecting a Tour.</p></div>
+    <div class="actions"><button class="btn secondary" id="refreshBtn">Refresh</button></div>
+  </div>
+  <form id="cycleForm" class="compact-form inline-cycle-form">
+    <input type="hidden" id="selected_tour_id">
+    <label>Cycle Start<input id="cycle_start_date" type="date" required></label>
+    <label>Cycle End<input id="cycle_end_date" type="date" required></label>
+    <label>Per Diem / Day<input id="cycle_per_diem_per_day" type="number" step="0.01" required></label>
+    <label>Status<select id="cycle_status"><option value="active">Active</option><option value="draft">Draft</option><option value="closed">Closed</option></select></label>
+    <label class="span-2">Cycle Notes<input id="cycle_notes" placeholder="Optional notes"></label>
+    <div class="actions"><button class="btn" id="saveCycleBtn">Add Cycle</button></div>
+  </form>
+  <div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Dates</th><th>Days</th><th>Per Day</th><th>Total</th><th>Status</th></tr></thead><tbody id="cycleRows"><tr><td colspan="5">Select a Tour first.</td></tr></tbody></table></div>
+</div>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=7"></script><script src="assets/js/supabaseClient.js?v=7"></script><script src="assets/js/auth.js?v=7"></script><script src="assets/js/layout.js?v=7"></script><script src="assets/js/tours.js?v=7"></script></body></html>
