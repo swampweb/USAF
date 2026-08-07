@@ -20,7 +20,7 @@ function hasAttachment(r) {
 }
 
 function attachmentIcon(r) {
-  return hasAttachment(r) ? '<span class="attachment-pill" title="Receipt file attached">📎 File</span>' : '';
+  return hasAttachment(r) ? '<span class="attachment-pill" title="Receipt file attached">📎</span>' : '';
 }
 
 async function openAttachmentForReceipt(receiptId) {
@@ -130,7 +130,7 @@ function renderTourReceiptWorkspace() {
   addReceiptBtn.addEventListener('click', () => openReceiptModal());
   document.querySelectorAll('[data-edit-receipt]').forEach(btn => btn.addEventListener('click', () => openReceiptModal(receiptsCache.find(r => r.id === btn.dataset.editReceipt))));
   document.querySelectorAll('[data-delete-receipt]').forEach(btn => btn.addEventListener('click', () => deleteReceipt(btn.dataset.deleteReceipt)));
-  document.querySelectorAll('[data-view-receipt]').forEach(btn => btn.addEventListener('click', () => openAttachmentForReceipt(btn.dataset.viewReceipt)));
+  
 }
 
 function receiptSectionHtml(scope, title) {

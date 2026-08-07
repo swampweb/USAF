@@ -221,3 +221,7 @@ td.actions { white-space: nowrap; }
 .attachment-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .receipt-row.has-attachment { background: linear-gradient(90deg, rgba(239,248,255,.8), #fff); }
 .file-link-btn { border: 1px solid #c7d7fe; background: #eef4ff; color: var(--primary); border-radius: 10px; padding: 7px 10px; font-weight: 900; cursor: pointer; }
+
+
+/* v15 attachment cleanup */
+.attachment-pill{font-size:18px!important;padding:2px 6px!important;background:transparent!important;border:none!important;color:#1d4ed8!important;font-weight:900}.attachment-pill::after{content:""}
