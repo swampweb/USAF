@@ -15,6 +15,35 @@ function daysBetween(start, end) { return ((new Date(end) - new Date(start)) / 8
 function parseCurrency(value) { return Number(String(value || '').replace(/[^0-9.-]/g, '')) || 0; }
 function formatCurrencyInput(value) { const n = parseCurrency(value); return n ? n.toFixed(2) : ''; }
 
+function hasAttachment(r) {
+  return !!(r && (r.file_path || r.file_name));
+}
+
+function attachmentIcon(r) {
+  return hasAttachment(r) ? '<span class="attachment-pill" title="Receipt file attached">📎 File</span>' : '';
+}
+
+async function openAttachmentForReceipt(receiptId) {
+  const receipt = receiptsCache.find(r => r.id === receiptId);
+  if (!receipt || !receipt.file_path) {
+    alert('No receipt file is attached to this record.');
+    return;
+  }
+  const bucket = receipt.file_bucket || window.USAF_CONFIG.STORAGE_BUCKET || 'usaf-receipts';
+  const { data, error } = await window.usafSupabase.storage.from(bucket).createSignedUrl(receipt.file_path, 300);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+  window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+}
+
+function attachmentPanelHtml(receipt) {
+  if (!receipt || !hasAttachment(receipt)) return '';
+  return `<div><strong>📎 Attached File</strong><span>${receipt.file_name || receipt.file_path}</span></div><div class="attachment-actions"><button class="file-link-btn" type="button" id="viewAttachedFileBtn">View File</button><button class="btn small secondary" type="button" id="replaceFileNoteBtn">Replace by choosing a new file before saving</button></div>`;
+}
+
+
 async function initReceipts() {
   await renderLayout('Receipts');
   bindEvents();
@@ -101,11 +130,12 @@ function renderTourReceiptWorkspace() {
   addReceiptBtn.addEventListener('click', () => openReceiptModal());
   document.querySelectorAll('[data-edit-receipt]').forEach(btn => btn.addEventListener('click', () => openReceiptModal(receiptsCache.find(r => r.id === btn.dataset.editReceipt))));
   document.querySelectorAll('[data-delete-receipt]').forEach(btn => btn.addEventListener('click', () => deleteReceipt(btn.dataset.deleteReceipt)));
+  document.querySelectorAll('[data-view-receipt]').forEach(btn => btn.addEventListener('click', () => openAttachmentForReceipt(btn.dataset.viewReceipt)));
 }
 
 function receiptSectionHtml(scope, title) {
   const rows = receiptsByScope(scope);
-  const body = rows.map(r => `<div class="receipt-row"><div><strong>${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${r.USAF_receipt_types?.name || ''} ${r.USAF_cycles ? '| ' + fmtDate(r.USAF_cycles.start_date) + ' - ' + fmtDate(r.USAF_cycles.end_date) : ''}</small></div><div class="receipt-row-actions receipt-actions-expanded"><strong>${money(r.amount)}</strong><button class="btn small secondary" data-edit-receipt="${r.id}">Edit</button><button class="btn small danger" data-delete-receipt="${r.id}">Delete</button></div></div>`).join('') || '<div class="receipt-empty">No receipts in this category yet.</div>';
+  const body = rows.map(r => `<div class="receipt-row ${hasAttachment(r) ? 'has-attachment' : ''}"><div><strong>${attachmentIcon(r)} ${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${r.USAF_receipt_types?.name || ''} ${r.USAF_cycles ? '| ' + fmtDate(r.USAF_cycles.start_date) + ' - ' + fmtDate(r.USAF_cycles.end_date) : ''}</small></div><div class="receipt-row-actions receipt-actions-expanded"><strong>${money(r.amount)}</strong>${hasAttachment(r) ? `<button class="btn small secondary" data-view-receipt="${r.id}">View</button>` : ''}<button class="btn small secondary" data-edit-receipt="${r.id}">Edit</button><button class="btn small danger" data-delete-receipt="${r.id}">Delete</button></div></div>`).join('') || '<div class="receipt-empty">No receipts in this category yet.</div>';
   return `<div class="receipt-section"><div class="receipt-section-head"><h3>${title}</h3><span class="badge">${rows.length}</span></div><div class="receipt-row-list">${body}</div></div>`;
 }
 
@@ -186,6 +216,15 @@ function openReceiptModal(receipt = null) {
     receipt_date.min = selectedTour.orders_start_date || '';
     receipt_date.max = selectedTour.orders_end_date || '';
   }
+  if (receipt && hasAttachment(receipt)) {
+    existingAttachment.classList.remove('hidden');
+    existingAttachment.innerHTML = attachmentPanelHtml(receipt);
+    const viewBtn = document.getElementById('viewAttachedFileBtn');
+    if (viewBtn) viewBtn.addEventListener('click', () => openAttachmentForReceipt(receipt.id));
+  } else {
+    existingAttachment.classList.add('hidden');
+    existingAttachment.innerHTML = '';
+  }
   receiptModal.classList.add('open');
 }
 
@@ -224,7 +263,7 @@ async function deleteReceipt(id) {
   const receipt = receiptsCache.find(r => r.id === id);
   if (!receipt) return;
   const details = `${receipt.customer} - ${money(receipt.amount)} - ${fmtDate(receipt.receipt_date)}`;
-  const ok = confirm(`Delete this receipt?\n\n${details}\n\nThis will remove the receipt record. Uploaded file cleanup can be added later if needed.`);
+  const ok = confirm(`Delete this receipt?\n\n${details}\n\nThis will remove the receipt record. The uploaded file may remain in storage until storage cleanup is added.`);
   if (!ok) return;
   const { error } = await window.usafSupabase.from('USAF_receipts').delete().eq('id', id);
   if (error) return alert(error.message);

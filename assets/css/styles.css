@@ -211,3 +211,13 @@ td.actions { white-space: nowrap; }
 .receipt-actions-expanded { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .receipt-row-actions .btn.danger, .hero-actions .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .delete-warning { background: #fff1f3; border: 1px solid #fecdd3; color: #9f1239; border-radius: 14px; padding: 12px; margin-top: 12px; font-weight: 800; }
+
+/* Receipt Attachments v14 */
+.attachment-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 9px; background: #eef4ff; color: var(--primary); font-size: 12px; font-weight: 900; }
+.attachment-existing { border: 1px solid var(--line); background: #f8fafc; border-radius: 14px; padding: 12px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.attachment-existing.hidden { display: none; }
+.attachment-existing strong { display: block; }
+.attachment-existing span { color: var(--muted); font-size: 12px; }
+.attachment-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.receipt-row.has-attachment { background: linear-gradient(90deg, rgba(239,248,255,.8), #fff); }
+.file-link-btn { border: 1px solid #c7d7fe; background: #eef4ff; color: var(--primary); border-radius: 10px; padding: 7px 10px; font-weight: 900; cursor: pointer; }
