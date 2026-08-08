@@ -1,1 +1,57 @@
-<!doctype html><html><head><meta http-equiv="refresh" content="0; url=login.html"></head><body></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mobile Dashboard | Orders & Travel Tracker</title>
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="shortcut icon" href="../favicon.ico">
+  <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
+  <link rel="manifest" href="../site.webmanifest">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=57">
+</head>
+<body data-page="index">
+  <div class="mobile-shell">
+    <header class="mobile-topbar">
+      <button class="menu-button" type="button" id="menuButton" aria-label="Open menu">☰</button>
+      <div class="topbar-title">
+        <strong>Orders & Travel</strong>
+        <span>Mobile Dashboard</span>
+      </div>
+      <button class="icon-button" type="button" id="refreshButton" aria-label="Refresh">↻</button>
+    </header>
+
+    <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+      <div class="drawer-head">
+        <strong>Menu</strong>
+        <button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button>
+      </div>
+      <nav class="drawer-nav">
+        <a href="index.html">Dashboard</a>
+        <a href="tours.html">Tours</a>
+        <a href="receipts.html">Receipts</a>
+        <a href="vouchers.html">Voucher Packages</a>
+        <a href="profile.html">My Profile</a>
+        <a href="../dashboard.html" id="desktopViewLink">Desktop View</a>
+        <button type="button" id="logoutButton">Logout</button>
+      </nav>
+    </aside>
+
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+    <main class="mobile-main">
+      <section class="mobile-hero">
+        <h1>Mobile Dashboard</h1>
+        <p>Quick access to tours, receipts, vouchers, and profile details.</p>
+      </section>
+      <section id="mobileContent" class="mobile-content">
+        <div class="loading-card">Loading...</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/config.js?v=57"></script>
+  <script src="assets/js/mobile.js?v=57"></script>
+</body>
+</html>
