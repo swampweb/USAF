@@ -6,7 +6,7 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=46">
+  <link rel="stylesheet" href="assets/css/styles.css?v=47">
   <style id="loginBackgroundStyle"></style>
 </head>
 <body class="login-body">
@@ -29,11 +29,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v46 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Mobile Redirect v47 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=46"></script>
+  <script src="assets/js/config.js?v=47"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -57,7 +57,10 @@
         signInBtn.disabled = false;
         signupBtn.disabled = false;
       }
-      function dashboardUrl() { return '/USAF/dashboard.html'; }
+      function dashboardUrl() {
+        var isPhone = window.matchMedia('(max-width: 768px)').matches;
+        return isPhone ? '/USAF/mobile/index.html' : '/USAF/dashboard.html';
+      }
       function getSupabaseClient() {
         if (client) return client;
         if (!window.supabase) { showError('Supabase script did not load. Refresh the page.'); return null; }
