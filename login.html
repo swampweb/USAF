@@ -6,7 +6,8 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=42">
+  <link rel="stylesheet" href="assets/css/styles.css?v=44">
+  <style id="loginBackgroundStyle"></style>
 </head>
 <body class="login-body">
   <div class="login-card">
@@ -28,11 +29,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v42 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v44 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=42"></script>
+  <script src="assets/js/config.js?v=44"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -41,6 +42,7 @@
       var signInBtn = document.getElementById('signInBtn');
       var signupBtn = document.getElementById('signupBtn');
       var message = document.getElementById('message');
+      var backgroundStyle = document.getElementById('loginBackgroundStyle');
       var client = null;
 
       function setMessage(text) { message.textContent = text || ''; }
@@ -68,27 +70,53 @@
       }
       function applyLoginBackground(url) {
         if (!url) return;
-        document.body.style.backgroundImage = "linear-gradient(135deg, rgba(0,48,143,.74), rgba(10,35,66,.82)), url('" + url + "')";
+        var safeUrl = String(url).replace(/'/g, "%27");
+        backgroundStyle.textContent = "\n" +
+          "html, body.login-body, body.login-body::before {\n" +
+          "  background-image: linear-gradient(135deg, rgba(0,48,143,.62), rgba(10,35,66,.78)), url('" + safeUrl + "') !important;\n" +
+          "  background-position: center center !important;\n" +
+          "  background-size: cover !important;\n" +
+          "  background-repeat: no-repeat !important;\n" +
+          "  background-attachment: fixed !important;\n" +
+          "}\n";
+        document.body.style.backgroundImage = "linear-gradient(135deg, rgba(0,48,143,.62), rgba(10,35,66,.78)), url('" + safeUrl + "')";
         document.body.style.backgroundPosition = 'center center';
         document.body.style.backgroundSize = 'cover';
         document.body.style.backgroundRepeat = 'no-repeat';
+        console.log('Applied login background:', url);
+      }
+      function pickFirstUrl(data) {
+        if (!data) return null;
+        return data.login_background_path ||
+          data.login_background_url ||
+          data.loginBackgroundPath ||
+          data.loginBackgroundUrl ||
+          data.background_path ||
+          data.background_url ||
+          null;
       }
       async function loadBranding() {
         var supa = getSupabaseClient();
         if (!supa) return;
         try {
-          var result = await supa.from('USAF_settings').select('organization_name,primary_color,secondary_color,accent_color,login_logo_path,login_background_path').eq('id', true).maybeSingle();
+          var result = await supa.from('USAF_settings').select('*').maybeSingle();
           if (result.error) {
             console.warn('Login branding load skipped:', result.error);
             return;
           }
           var data = result.data || {};
+          console.log('Login branding settings loaded:', data);
           if (data.primary_color) document.documentElement.style.setProperty('--primary', data.primary_color);
           if (data.secondary_color) document.documentElement.style.setProperty('--secondary', data.secondary_color);
           if (data.accent_color) document.documentElement.style.setProperty('--accent', data.accent_color);
           if (data.organization_name) document.getElementById('loginTitle').textContent = data.organization_name;
           if (data.login_logo_path) document.getElementById('loginLogoImg').src = data.login_logo_path;
-          if (data.login_background_path) applyLoginBackground(data.login_background_path);
+          var bg = pickFirstUrl(data);
+          if (bg) {
+            applyLoginBackground(bg);
+          } else {
+            console.warn('No login background URL was found in USAF_settings. Expected login_background_path.');
+          }
         } catch (err) {
           console.warn('Login branding load skipped:', err);
         }
@@ -146,6 +174,7 @@
       signupBtn.addEventListener('click', function (event) { event.preventDefault(); createAccount(); });
       window.handleSignInDebug = signIn;
       window.handleSignupDebug = createAccount;
+      window.applyLoginBackgroundDebug = applyLoginBackground;
       loadBranding().finally(redirectIfAlreadySignedIn);
     })();
   </script>
