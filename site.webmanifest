@@ -1,0 +1,13 @@
+{
+  "name": "Orders & Travel Tracker",
+  "short_name": "Orders Travel",
+  "start_url": "/USAF/mobile/index.html",
+  "scope": "/USAF/",
+  "display": "standalone",
+  "background_color": "#00308F",
+  "theme_color": "#00308F",
+  "icons": [
+    { "src": "/USAF/assets/img/orders-travel-tracker-icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/USAF/assets/img/orders-travel-tracker-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

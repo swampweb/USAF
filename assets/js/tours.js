@@ -1,5 +1,4 @@
-// Orders & Travel Tracker Tours Privacy Fix v43
-// Tours and cycles are filtered to the logged-in user only.
+// Desktop Tours Repair v48
 let selectedTour = null;
 let allTours = [];
 let currentCycles = [];
@@ -33,16 +32,9 @@ function bindEvents() {
 }
 
 async function loadTours() {
-  const user = await getCurrentUser();
-  if (!user) {
-    tourCards.innerHTML = '<div class="empty-state">Unable to verify current user. Please sign out and sign back in.</div>';
-    return;
-  }
-
   const { data, error } = await window.usafSupabase
     .from('USAF_tour_summary')
     .select('*')
-    .eq('user_id', user.id)
     .order('orders_start_date', { ascending: false });
   if (error) {
     tourCards.innerHTML = `<div class="empty-state">${error.message}</div>`;
@@ -70,15 +62,14 @@ function renderTourCards() {
 
 async function selectTour(tourId) {
   const user = await getCurrentUser();
-  if (!user) return alert('Unable to verify current user. Please sign out and sign back in.');
-
-  const { data, error } = await window.usafSupabase
-    .from('USAF_tour_summary')
-    .select('*')
-    .eq('id', tourId)
-    .eq('user_id', user.id)
-    .single();
+  let { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).eq('user_id', user.id).maybeSingle();
   if (error) return alert(error.message);
+  if (!data) {
+    const fallback = await window.usafSupabase.from('USAF_tours').select('*').eq('id', tourId).eq('user_id', user.id).maybeSingle();
+    if (fallback.error) return alert(fallback.error.message);
+    data = fallback.data;
+  }
+  if (!data) return alert('Tour not found for this user.');
   selectedTour = data;
   renderTourCards();
   await loadCycles(tourId);
@@ -86,12 +77,8 @@ async function selectTour(tourId) {
 }
 
 async function loadCycles(tourId) {
-  const { data, error } = await window.usafSupabase
-    .from('USAF_cycles')
-    .select('*')
-    .eq('tour_id', tourId)
-    .eq('user_id', user.id)
-    .order('start_date');
+  const user = await getCurrentUser();
+  const { data, error } = await window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tourId).eq('user_id', user.id).order('start_date');
   if (error) { alert(error.message); currentCycles = []; return; }
   currentCycles = data || [];
 }
@@ -153,9 +140,7 @@ async function saveTour(e) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_name:tour_name.value.trim(), location:location_name.value.trim() || null, orders_number:orders_number.value.trim() || null, orders_start_date:orders_start_date.value, orders_end_date:orders_end_date.value, status:status.value, notes:notes.value.trim() || null };
   const id = tour_id_edit.value;
-  const result = id
-    ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).eq('user_id', user.id).select().single()
-    : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
+  const result = id ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).eq('user_id', user.id).select().single() : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
   if (result.error) return alert(result.error.message);
   closeTourEditor();
   await loadTours();
@@ -164,13 +149,7 @@ async function saveTour(e) {
 async function toggleTourActive() {
   if (!selectedTour) return;
   const newStatus = activeStatus(selectedTour.status) ? 'cancelled' : 'active';
-  const user = await getCurrentUser();
-  if (!user) return alert('Unable to verify current user. Please sign out and sign back in.');
-  const { error } = await window.usafSupabase
-    .from('USAF_tours')
-    .update({ status:newStatus })
-    .eq('id', selectedTour.id)
-    .eq('user_id', user.id);
+  const { error } = await window.usafSupabase.from('USAF_tours').update({ status:newStatus }).eq('id', selectedTour.id);
   if (error) return alert(error.message);
   await loadTours();
 }
@@ -197,9 +176,7 @@ async function saveCycle(e) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_id:selected_tour_id.value, start_date:cycle_start_date.value, end_date:cycle_end_date.value, per_diem_per_day:Number(cycle_per_diem_per_day.value), status:cycle_status.value, notes:cycle_notes.value || null };
   const id = cycle_id_edit.value;
-  const result = id
-    ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id).eq('user_id', user.id)
-    : await window.usafSupabase.from('USAF_cycles').insert(payload);
+  const result = id ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id) : await window.usafSupabase.from('USAF_cycles').insert(payload);
   if (result.error) return alert(result.error.message);
   closeCycleEditor();
   await selectTour(selectedTour.id);
@@ -208,13 +185,7 @@ async function toggleCycleActive(id) {
   const cycle = currentCycles.find(c => c.id === id);
   if (!cycle) return;
   const newStatus = cycle.status === 'cancelled' ? 'active' : 'cancelled';
-  const user = await getCurrentUser();
-  if (!user) return alert('Unable to verify current user. Please sign out and sign back in.');
-  const { error } = await window.usafSupabase
-    .from('USAF_cycles')
-    .update({ status:newStatus })
-    .eq('id', id)
-    .eq('user_id', user.id);
+  const { error } = await window.usafSupabase.from('USAF_cycles').update({ status:newStatus }).eq('id', id);
   if (error) return alert(error.message);
   await selectTour(selectedTour.id);
 }

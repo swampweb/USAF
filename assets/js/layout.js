@@ -1,3 +1,17 @@
+
+(function ensureAppIcons(){
+  const links = [
+    ['icon','/USAF/favicon.ico'],
+    ['shortcut icon','/USAF/favicon.ico'],
+    ['apple-touch-icon','/USAF/assets/img/orders-travel-tracker-icon.png'],
+    ['manifest','/USAF/site.webmanifest']
+  ];
+  links.forEach(([rel,href])=>{
+    if(!document.querySelector(`link[rel="${rel}"]`)){
+      const l=document.createElement('link'); l.rel=rel; l.href=href; document.head.appendChild(l);
+    }
+  });
+})();
 const ADMIN_LINKS = [
   { label: "Users", href: "admin/users.html", icon: "users" },
   { label: "Receipt Types", href: "admin/receipt-types.html", icon: "tags" },
@@ -9,10 +23,10 @@ const ADMIN_LINKS = [
 const USER_LINKS = [
   { label: "Dashboard", href: "dashboard.html", icon: "home" },
   { label: "Tours", href: "tours.html", icon: "folder" },
-  { label: "Receipts", href: "receipts.html", icon: "receipt" },
-  { label: "Voucher Packages", href: "voucher-downloads.html", icon: "download" },
-  { label: "Reports", href: "reports.html", icon: "bar-chart" },
-  { label: "Profile", href: "profile.html", icon: "users" }
+  { label: "Per Diem Receipts", href: "receipts.html", icon: "receipt" },
+  { label: "Other Receipts", href: "other-receipts.html", icon: "folder" },
+  { label: "Voucher / Downloads", href: "voucher-downloads.html", icon: "download" },
+  { label: "Reports", href: "reports.html", icon: "bar-chart" }
 ];
 
 function isAdminPath() {
@@ -72,14 +86,14 @@ async function renderLayout(activeTitle) {
   app.innerHTML = `
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo-mark image-logo"><img src="${settings.site_logo_path || prefix + 'assets/img/orders-travel-tracker-logo.png'}" alt="Orders & Travel Tracker logo"></div>
+        <div class="logo-mark">✦</div>
         <div>
-          <div class="brand-title">${settings.organization_name || 'Orders & Travel Tracker'}</div>
-          <div class="brand-subtitle">Orders / Receipts / Vouchers</div>
+          <div class="brand-title">${settings.organization_name || 'USAF Travel Tracker'}</div>
+          <div class="brand-subtitle">Integrity · Service · Excellence</div>
         </div>
       </div>
       <nav>${userLinksHtml}${adminLinksHtml}</nav>
-      <div class="sidebar-footer">Orders & Travel Tracker</div>
+      <div class="sidebar-footer">USAF Per Diem Tracker</div>
     </aside>
     <main class="main">
       <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${settings.dashboard_banner_path || prefix + 'assets/img/default-banner.svg'}')">
