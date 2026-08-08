@@ -209,8 +209,48 @@ async function recalcPackage(packageId) {
   if (error) alert(error.message);
 }
 
+
+function showThemedMessage({ title, text, icon = '✅', kind = 'success', details = [], actions = [] }) {
+  packageModalTitle.textContent = title;
+  const detailHtml = details.length ? `<div class="theme-message-panel ${kind === 'danger' ? 'danger' : ''}">${details.map(d => `<div>${d}</div>`).join('')}</div>` : '';
+  const actionHtml = actions.length ? `<div class="actions">${actions.map(a => `<button class="btn ${a.className || ''}" id="${a.id}">${a.label}</button>`).join('')}</div>` : '<div class="actions"><button class="btn secondary" id="themeMessageCloseBtn">Close</button></div>';
+  packageModalBody.innerHTML = `<div><div class="theme-message-icon ${kind}">${icon}</div><h2 class="theme-message-title">${title}</h2><p class="theme-message-text">${text}</p>${detailHtml}${actionHtml}</div>`;
+  packageModal.classList.add('open');
+  const closeBtn = document.getElementById('themeMessageCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', () => packageModal.classList.remove('open'));
+  actions.forEach(a => {
+    const btn = document.getElementById(a.id);
+    if (btn && a.onClick) btn.addEventListener('click', a.onClick);
+  });
+}
+
+function showDeletePackageConfirm(packageId, pkg, rowCount) {
+  showThemedMessage({
+    title: 'Delete Voucher Package?',
+    text: 'This will delete the package record and return included receipts back to Available.',
+    icon: '🗑️',
+    kind: 'danger',
+    details: [
+      `Date Range: ${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}`,
+      `Receipts Returned: ${rowCount}`,
+      `Package Total: ${money(pkg.total_amount)}`
+    ],
+    actions: [
+      { id: 'confirmDeletePackageBtn', label: 'Delete Package', className: 'danger', onClick: () => executeDeletePackage(packageId) },
+      { id: 'cancelDeletePackageBtn', label: 'Cancel', className: 'secondary', onClick: () => packageModal.classList.remove('open') }
+    ]
+  });
+}
+
 async function deletePackage(packageId) {
-  if (!confirm('Delete this voucher package? Included receipts will be returned to Available.')) return;
+  const pkg = packagesCache.find(p => p.id === packageId);
+  if (!pkg) return alert('Package not found.');
+  let rows;
+  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
+  showDeletePackageConfirm(packageId, pkg, rows.length);
+}
+
+async function executeDeletePackage(packageId) {
   let rows;
   try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
   const receiptIds = rows.map(r => r.receipt_id).filter(Boolean);
@@ -222,223 +262,15 @@ async function deletePackage(packageId) {
   }
   const { error: packageDeleteError } = await window.usafSupabase.from('USAF_vouchers').delete().eq('id', packageId);
   if (packageDeleteError) return alert(packageDeleteError.message);
-  alert('Voucher package deleted. Included receipts are Available again.');
   await selectTour(selectedTour.id);
-}
-
-function safeFileName(value) {
-  return String(value || 'file').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
-}
-
-function packageBaseName(pkg) {
-  const tourName = safeFileName(selectedTour?.tour_name || 'Tour');
-  return `${tourName}_${pkg.date_from}_to_${pkg.date_to}_Voucher_Package`;
-}
-
-function buildPackageSummary(pkg, rows) {
-  const lines = [];
-  lines.push('USAF Voucher Package Summary');
-  lines.push('Tour: ' + (selectedTour?.tour_name || ''));
-  lines.push('Date Range: ' + fmtDate(pkg.date_from) + ' - ' + fmtDate(pkg.date_to));
-  lines.push('Created: ' + new Date(pkg.created_at).toLocaleString());
-  lines.push('Status: ' + pkg.status);
-  lines.push('Receipt Count: ' + rows.length);
-  lines.push('Total Amount: ' + money(sumRows(rows.map(r => ({ amount: r.amount })))));
-  lines.push('');
-  lines.push('Included Receipts');
-  rows.forEach((item, index) => {
-    const r = item.USAF_receipts || {};
-    const typeName = r.USAF_receipt_types?.name || '';
-    lines.push(`${index + 1}. ${r.customer || ''} | ${fmtDate(r.receipt_date)} | ${receiptScopeLabel(r.scope)} | ${typeName} | ${money(item.amount)} | File: ${r.file_name || 'No attachment'}`);
+  showThemedMessage({
+    title: 'Package Deleted',
+    text: 'Voucher package deleted successfully. Included receipts are Available again.',
+    icon: '✅',
+    kind: 'success',
+    details: [`Receipts Returned: ${receiptIds.length}`]
   });
-  return lines.join('\n');
 }
 
-
-async function buildPackageSummaryPdf(pkg, rows) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    throw new Error('PDF library did not load. Refresh the page and try again.');
-  }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-  const margin = 42;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 48;
-
-  doc.setFillColor(0, 48, 143);
-  doc.rect(0, 0, pageWidth, 78, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18);
-  doc.setFont(undefined, 'bold');
-  doc.text('USAF Voucher Package Summary', margin, 38);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
-  doc.text('Generated by USAF Travel Tracker', margin, 58);
-
-  y = 108;
-  doc.setTextColor(18, 32, 51);
-  doc.setFontSize(11);
-  function field(label, value) {
-    doc.setFont(undefined, 'bold');
-    doc.text(label, margin, y);
-    doc.setFont(undefined, 'normal');
-    doc.text(String(value || ''), margin + 120, y);
-    y += 18;
-  }
-
-  field('Tour', selectedTour?.tour_name || '');
-  field('Date Range', `${fmtDate(pkg.date_from)} to ${fmtDate(pkg.date_to)}`);
-  field('Created', new Date(pkg.created_at).toLocaleString());
-  field('Status', pkg.status || '');
-
-  const per = rows.filter(item => item.USAF_receipts?.scope === 'per_diem');
-  const other = rows.filter(item => item.USAF_receipts?.scope === 'other');
-  y += 18;
-  doc.setFont(undefined, 'bold');
-  doc.setFontSize(13);
-  doc.text('Package Summary', margin, y);
-  y += 22;
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
-  doc.text(`Per Diem Receipts: ${per.length}`, margin, y);
-  doc.text(`Other Receipts: ${other.length}`, margin + 170, y);
-  doc.text(`Total Receipts: ${rows.length}`, margin + 340, y);
-  y += 18;
-  doc.setFont(undefined, 'bold');
-  doc.text(`Total Amount: ${money(sumRows(rows.map(r => ({ amount: r.amount }))))}`, margin, y);
-
-  y += 34;
-  doc.setFontSize(13);
-  doc.text('Receipt Breakdown', margin, y);
-  y += 18;
-
-  const headers = ['Date', 'Category', 'Customer', 'Type', 'Amount', 'Attachment'];
-  const widths = [70, 78, 140, 100, 70, 86];
-  doc.setFillColor(248, 250, 252);
-  doc.rect(margin, y, widths.reduce((a,b)=>a+b,0), 22, 'F');
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'bold');
-  let x = margin;
-  headers.forEach((h, i) => { doc.text(h, x + 4, y + 14); x += widths[i]; });
-  y += 22;
-  doc.setFont(undefined, 'normal');
-
-  rows.forEach((item) => {
-    if (y > 720) { doc.addPage(); y = 48; }
-    const r = item.USAF_receipts || {};
-    const vals = [fmtDate(r.receipt_date), receiptScopeLabel(r.scope), r.customer || '', r.USAF_receipt_types?.name || '', money(item.amount), r.file_name ? 'Yes' : 'No'];
-    x = margin;
-    vals.forEach((v, i) => {
-      const text = String(v).length > 24 ? String(v).slice(0, 23) + '...' : String(v);
-      doc.text(text, x + 4, y + 14);
-      x += widths[i];
-    });
-    doc.setDrawColor(238, 242, 247);
-    doc.line(margin, y + 20, margin + widths.reduce((a,b)=>a+b,0), y + 20);
-    y += 22;
-  });
-
-  y += 24;
-  if (y > 720) { doc.addPage(); y = 48; }
-  doc.setFontSize(9);
-  doc.setTextColor(102,112,133);
-  doc.text('Verify all supporting documents before DTS upload. Attach this ZIP to email if sending package support.', margin, y);
-  return doc.output('blob');
-}
-
-function showDownloadReadyModal(packageId, zipName) {
-  packageModalTitle.textContent = 'Package Downloaded';
-  packageModalBody.innerHTML = `<div class="voucher-ready-modal"><div class="voucher-ready-icon">📦</div><h2 class="voucher-ready-title">Voucher Package Downloaded</h2><p class="voucher-ready-text">Your voucher package ZIP has downloaded successfully. The email draft cannot attach the ZIP automatically, so attach the downloaded ZIP before sending.</p><div class="voucher-ready-steps"><div>1. Click Open Email Draft if you want to send this packet.</div><div>2. Attach the downloaded ZIP file before sending.</div><div>3. Upload the ZIP contents or receipt files to DTS as needed.</div></div><p class="voucher-ready-text"><strong>Downloaded file:</strong> ${zipName}</p><div class="actions"><button class="btn" id="readyEmailBtn">Open Email Draft</button><button class="btn secondary" id="readyCloseBtn">Close</button></div></div>`;
-  packageModal.classList.add('open');
-  document.getElementById('readyEmailBtn').addEventListener('click', () => emailPackage(packageId));
-  document.getElementById('readyCloseBtn').addEventListener('click', () => packageModal.classList.remove('open'));
-}
-
-function buildPackageCsv(rows) {
-  const header = ['Customer','Date','Scope','Type','Amount','File Name'].join(',');
-  const body = rows.map(item => {
-    const r = item.USAF_receipts || {};
-    const columns = [r.customer || '', fmtDate(r.receipt_date), receiptScopeLabel(r.scope), r.USAF_receipt_types?.name || '', Number(item.amount || 0).toFixed(2), r.file_name || ''];
-    return columns.map(v => `"${String(v).replaceAll('"','""')}"`).join(',');
-  });
-  return [header, ...body].join('\n');
-}
-
-function setDownloadProgress(text) {
-  const box = document.getElementById('downloadProgress');
-  if (!box) return;
-  box.classList.remove('hidden');
-  box.textContent = text;
-}
-
-async function downloadPackageZip(packageId) {
-  if (!window.JSZip) {
-    alert('ZIP library did not load. Refresh the page and try again.');
-    return;
-  }
-  const pkg = packagesCache.find(p => p.id === packageId);
-  if (!pkg) return alert('Package not found.');
-  let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  if (!rows.length) return alert('This package has no receipt items.');
-
-  const zip = new JSZip();
-  const baseName = packageBaseName(pkg);
-  zip.file('Voucher_Summary.pdf', await buildPackageSummaryPdf(pkg, rows));
-  zip.file('Voucher_Receipts.csv', buildPackageCsv(rows));
-  const receiptFolder = zip.folder('Receipts');
-  const bucket = window.USAF_CONFIG.STORAGE_BUCKET || 'usaf-receipts';
-
-  for (let i = 0; i < rows.length; i++) {
-    const item = rows[i];
-    const r = item.USAF_receipts || {};
-    setDownloadProgress(`Adding receipt ${i + 1} of ${rows.length}...`);
-    if (!r.file_path) {
-      receiptFolder.file(`${String(i + 1).padStart(3,'0')}_${safeFileName(r.customer || 'No_Attachment')}.txt`, 'No attachment was uploaded for this receipt.');
-      continue;
-    }
-    const signed = await window.usafSupabase.storage.from(bucket).createSignedUrl(r.file_path, 300);
-    if (signed.error) {
-      receiptFolder.file(`${String(i + 1).padStart(3,'0')}_${safeFileName(r.customer || 'Attachment_Error')}.txt`, 'Could not create signed URL: ' + signed.error.message);
-      continue;
-    }
-    const response = await fetch(signed.data.signedUrl);
-    if (!response.ok) {
-      receiptFolder.file(`${String(i + 1).padStart(3,'0')}_${safeFileName(r.customer || 'Download_Error')}.txt`, 'Could not download attached receipt file.');
-      continue;
-    }
-    const blob = await response.blob();
-    const fileName = `${String(i + 1).padStart(3,'0')}_${safeFileName(r.customer || 'Receipt')}_${safeFileName(r.file_name || 'attachment')}`;
-    receiptFolder.file(fileName, blob);
-  }
-
-  setDownloadProgress('Building ZIP package...');
-  const content = await zip.generateAsync({ type: 'blob' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(content);
-  link.download = `${baseName}.zip`;
-  document.body.appendChild(link);
-  link.click();
-  URL.revokeObjectURL(link.href);
-  link.remove();
-  setDownloadProgress('ZIP package downloaded. Next step: click Open Email Draft and attach the downloaded ZIP before sending.');
-  showDownloadReadyModal(packageId, `${baseName}.zip`);
-}
-
-async function emailPackage(packageId) {
-  const pkg = packagesCache.find(p => p.id === packageId);
-  if (!pkg) return alert('Package not found.');
-  let rows;
-  try {
-    rows = await getPackageItems(packageId);
-  } catch (err) {
-    return alert(err.message);
-  }
-  const subject = encodeURIComponent('USAF Voucher Package - ' + (selectedTour?.tour_name || 'Tour'));
-  const summary = buildPackageSummary(pkg, rows);
-  const note = 'IMPORTANT: The voucher ZIP package was downloaded separately. Attach the downloaded ZIP file to this email before sending.';
-  const body = encodeURIComponent(summary + '\n\n' + note);
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
-}
 
 initVoucherPackages();
