@@ -112,7 +112,7 @@ function previewReceiptHtml(rows) {
   const per = rows.filter(r => r.scope === 'per_diem');
   const other = rows.filter(r => r.scope === 'other');
   if (!rows.length) return '<div class="empty-state">No available receipts found for this Tour/date range.</div>';
-  return `<div class="tour-metrics"><div class="metric-mini"><span>Per Diem</span><strong>${per.length}</strong></div><div class="metric-mini"><span>Other</span><strong>${other.length}</strong></div><div class="metric-mini"><span>Total Receipts</span><strong>${rows.length}</strong></div><div class="metric-mini"><span>Total Amount</span><strong>${money(sumRows(rows))}</strong></div></div><div class="voucher-receipt-list" style="margin-top:12px">${rows.map(r => `<div class="voucher-receipt-row"><input type="checkbox" checked data-include-receipt="${r.id}"><div><strong>${fileIcon(r)}${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${receiptScopeLabel(r.scope)} | ${r.USAF_receipt_types?.name || ''}</small></div><strong>${money(r.amount)}</strong></div>`).join('')}</div><div class="actions" style="margin-top:12px"><button class="btn" id="createPackageBtn">Create Voucher Package</button></div>`;
+  return `<div class="tour-metrics"><div class="metric-mini"><span>Per Diem</span><strong>${per.length}</strong></div><div class="metric-mini"><span>Other</span><strong>${other.length}</strong></div><div class="metric-mini"><span>Total Receipts</span><strong>${rows.length}</strong></div><div class="metric-mini"><span>Total Amount</span><strong>${money(sumRows(rows))}</strong></div></div><div class="voucher-receipt-list" style="margin-top:12px">${rows.map(r => `<div class="voucher-receipt-row"><input type="checkbox" checked data-include-receipt="${r.id}"><div><strong>${fileIcon(r)}${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${receiptScopeLabel(r.scope)} | ${r.USAF_receipt_types?.name || ''}</small></div><strong>${money(r.amount)}</strong></div>`).join('')}</div><div class="actions" style="margin-top:12px"><button class="btn" type="button" id="createPackageBtn">Create Voucher Package</button></div>`;
 }
 
 function packageHistoryHtml() {
@@ -122,7 +122,7 @@ function packageHistoryHtml() {
 
 function attachPackageButtons() {
   const createBtn = document.getElementById('createPackageBtn');
-  if (createBtn) createBtn.addEventListener('click', createPackage);
+  if (createBtn) createBtn.addEventListener('click', () => createPackage().catch(err => showVoucherError('Package Creation Failed', err.message || String(err))));
   document.querySelectorAll('[data-view-package]').forEach(btn => btn.addEventListener('click', () => viewPackage(btn.dataset.viewPackage)));
   document.querySelectorAll('[data-delete-package]').forEach(btn => btn.addEventListener('click', () => deletePackage(btn.dataset.deletePackage)));
   document.querySelectorAll('[data-download-package]').forEach(btn => btn.addEventListener('click', () => downloadPackageZip(btn.dataset.downloadPackage)));
@@ -135,6 +135,26 @@ function previewByDateRange() {
   const rows = availableReceipts.filter(r => (!from || r.receipt_date >= from) && (!to || r.receipt_date <= to));
   previewArea.innerHTML = previewReceiptHtml(rows);
   attachPackageButtons();
+}
+
+
+function showCreatePackageConfirm(rows) {
+  const total = sumRows(rows);
+  showThemedMessage({
+    title: 'Create Voucher Package?',
+    text: 'The selected receipts will be assigned to a new voucher package and removed from Available.',
+    icon: '📦',
+    kind: 'warning',
+    details: [
+      `Date Range: ${fmtDate(voucherFrom.value)} - ${fmtDate(voucherTo.value)}`,
+      `Receipts Selected: ${rows.length}`,
+      `Total Amount: ${money(total)}`
+    ],
+    actions: [
+      { id: 'confirmCreatePackageBtn', label: 'Create Package', className: '', onClick: () => executeCreatePackage(rows) },
+      { id: 'cancelCreatePackageBtn', label: 'Cancel', className: 'secondary', onClick: () => packageModal.classList.remove('open') }
+    ]
+  });
 }
 
 async function createPackage() {
