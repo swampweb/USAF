@@ -6,7 +6,7 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=45">
+  <link rel="stylesheet" href="assets/css/styles.css?v=46">
   <style id="loginBackgroundStyle"></style>
 </head>
 <body class="login-body">
@@ -29,11 +29,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v45 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v46 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=45"></script>
+  <script src="assets/js/config.js?v=46"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -95,6 +95,34 @@
           data.background_url ||
           null;
       }
+
+      async function findLatestStoredLoginBackground(supa) {
+        try {
+          var listResult = await supa.storage
+            .from('usaf-branding')
+            .list('backgrounds', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+          if (listResult.error) {
+            console.warn('Login background storage fallback failed:', listResult.error);
+            return null;
+          }
+          var files = (listResult.data || [])
+            .filter(function (file) { return file && file.name && file.name.indexOf('login_background_path_') === 0; })
+            .sort(function (a, b) {
+              var at = new Date(a.created_at || a.updated_at || 0).getTime();
+              var bt = new Date(b.created_at || b.updated_at || 0).getTime();
+              return bt - at;
+            });
+          if (!files.length) return null;
+          var publicResult = supa.storage.from('usaf-branding').getPublicUrl('backgrounds/' + files[0].name);
+          var url = publicResult && publicResult.data ? publicResult.data.publicUrl : null;
+          if (url) console.log('Using latest stored login background fallback:', url);
+          return url;
+        } catch (err) {
+          console.warn('Login background storage fallback skipped:', err);
+          return null;
+        }
+      }
+
       async function loadBranding() {
         var supa = getSupabaseClient();
         if (!supa) return;
@@ -112,10 +140,14 @@
           if (data.organization_name) document.getElementById('loginTitle').textContent = data.organization_name;
           if (data.login_logo_path) document.getElementById('loginLogoImg').src = data.login_logo_path;
           var bg = pickFirstUrl(data);
+          if (!bg) {
+            console.warn('No login background URL was found in USAF_settings row id=true. Trying storage fallback.');
+            bg = await findLatestStoredLoginBackground(supa);
+          }
           if (bg) {
             applyLoginBackground(bg);
           } else {
-            console.warn('No login background URL was found in USAF_settings row id=true. Expected login_background_path.');
+            console.warn('No login background could be found in settings or storage fallback.');
           }
         } catch (err) {
           console.warn('Login branding load skipped:', err);
