@@ -270,3 +270,12 @@ button[data-view-receipt] { display: none !important; }
 /* Manual Email Attachment v22 */
 .email-attach-reminder { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 14px; padding: 12px; margin-top: 12px; font-weight: 900; }
 .download-progress { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; color: var(--muted); font-weight: 800; }
+
+
+/* Voucher PDF and themed download message v23 */
+.voucher-ready-modal .modal-card { max-width: 560px; }
+.voucher-ready-icon { width: 56px; height: 56px; border-radius: 18px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; display: grid; place-items: center; font-size: 28px; margin-bottom: 12px; }
+.voucher-ready-title { margin: 0 0 8px; font-size: 22px; }
+.voucher-ready-text { color: var(--muted); line-height: 1.45; margin: 0 0 14px; }
+.voucher-ready-steps { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+.voucher-ready-steps div { margin: 6px 0; font-weight: 800; }
