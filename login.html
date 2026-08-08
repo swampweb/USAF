@@ -1,1 +1,168 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Login | Orders & Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=32"></head><body class="login-body"><div class="login-card"><div class="login-logo"><img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo"></div><h1 id="loginTitle">Orders & Travel Tracker</h1><p>Secure orders, receipt, and voucher tracking.</p><form id="loginForm" class="form-grid"><label>Email<input id="email" type="email" autocomplete="email" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn" type="submit" id="signInBtn">Sign In</button><button class="btn secondary" type="button" id="signupBtn">Create Account</button></form><div class="message" id="message"></div></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=32"></script><script src="assets/js/login.js?v=32"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | Orders & Travel Tracker</title>
+  <link rel="stylesheet" href="assets/css/styles.css?v=33" />
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo"><img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo"></div>
+    <h1 id="loginTitle">Orders & Travel Tracker</h1>
+    <p>Secure orders, receipt, and voucher tracking.</p>
+
+    <form id="loginForm" class="form-grid">
+      <label>Email<input id="email" type="email" autocomplete="email" required /></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
+      <button class="btn" type="submit" id="signInBtn">Sign In</button>
+      <button class="btn secondary" type="button" id="signupBtn">Create Account</button>
+    </form>
+
+    <div class="message" id="message"></div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v33 loaded</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=33"></script>
+  <script>
+    const form = document.getElementById('loginForm');
+    const msg = document.getElementById('message');
+    const signInBtn = document.getElementById('signInBtn');
+    const signupBtn = document.getElementById('signupBtn');
+
+    let cachedClient = null;
+
+    function setBusy(isBusy, text) {
+      signInBtn.disabled = isBusy;
+      signupBtn.disabled = isBusy;
+      if (text) msg.textContent = text;
+    }
+
+    function showError(text, err) {
+      console.error('Orders Travel Login Error:', text, err || '');
+      msg.textContent = text;
+      signInBtn.disabled = false;
+      signupBtn.disabled = false;
+    }
+
+    function getClient() {
+      if (cachedClient) return cachedClient;
+      if (!window.supabase) {
+        showError('Supabase library did not load. Refresh the page or check browser console.');
+        return null;
+      }
+      if (!window.USAF_CONFIG) {
+        showError('Missing config.js. Make sure assets/js/config.js was not replaced or deleted.');
+        return null;
+      }
+      const url = window.USAF_CONFIG.SUPABASE_URL;
+      const key = window.USAF_CONFIG.SUPABASE_ANON_KEY;
+      if (!url || !key) {
+        showError('Config is missing Supabase URL or anon key. Check assets/js/config.js.');
+        return null;
+      }
+      cachedClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+      return cachedClient;
+    }
+
+    async function raceAuth(promise, timeoutMessage) {
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), 8000);
+      });
+      try {
+        return await Promise.race([promise, timeout]);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    async function loadLoginBranding() {
+      const client = getClient();
+      if (!client) return;
+      try {
+        const { data } = await client.from('USAF_settings').select('*').eq('id', true).maybeSingle();
+        if (!data) return;
+        document.documentElement.style.setProperty('--primary', data.primary_color || '#00308F');
+        document.documentElement.style.setProperty('--secondary', data.secondary_color || '#0A2342');
+        document.documentElement.style.setProperty('--accent', data.accent_color || '#C0C0C0');
+        loginTitle.textContent = data.organization_name || 'Orders & Travel Tracker';
+        if (data.login_logo_path) loginLogoImg.src = data.login_logo_path;
+        if (data.login_background_path) {
+          document.body.style.backgroundImage = `linear-gradient(135deg, rgba(0,48,143,.92), rgba(10,35,66,.94)), url('${data.login_background_path}')`;
+        }
+      } catch (err) {
+        console.warn('Branding load skipped:', err);
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const client = getClient();
+      if (!client) return;
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) return showError('Enter email and password.');
+
+      setBusy(true, 'Signing in...');
+      try {
+        const { data, error } = await raceAuth(
+          client.auth.signInWithPassword({ email, password }),
+          'Login timed out after 8 seconds. Check config.js, Supabase Auth settings, or browser console.'
+        );
+        if (error) return showError(error.message, error);
+        if (!data || !data.session) return showError('No login session returned. Make sure this email exists under Supabase Authentication > Users.');
+        msg.textContent = 'Login successful. Opening dashboard...';
+        window.location.href = 'dashboard.html?v=33';
+      } catch (err) {
+        showError(err.message || 'Login failed.', err);
+      }
+    });
+
+    signupBtn.addEventListener('click', async () => {
+      const client = getClient();
+      if (!client) return;
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) return showError('Enter email and password before creating an account.');
+
+      setBusy(true, 'Creating account...');
+      try {
+        const { data, error } = await raceAuth(
+          client.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: 'https://swampweb.github.io/USAF/login.html',
+              data: { display_name: email }
+            }
+          }),
+          'Create account timed out after 8 seconds. Check Supabase Email provider and URL Configuration.'
+        );
+        if (error) return showError(error.message, error);
+        if (data && data.session) {
+          msg.textContent = 'Account created. Opening dashboard...';
+          window.location.href = 'dashboard.html?v=33';
+          return;
+        }
+        msg.textContent = 'Account created. If confirmation email is enabled, confirm the email, then sign in.';
+        signInBtn.disabled = false;
+        signupBtn.disabled = false;
+      } catch (err) {
+        showError(err.message || 'Create account failed.', err);
+      }
+    });
+
+    loadLoginBranding();
+  </script>
+</body>
+</html>
