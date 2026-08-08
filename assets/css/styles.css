@@ -257,7 +257,6 @@ button[data-view-receipt] { display: none !important; }
 @media (max-width:1120px){.voucher-workspace{grid-template-columns:1fr}.voucher-date-row{grid-template-columns:1fr}}
 @media (max-width:700px){.voucher-counts{grid-template-columns:1fr}.voucher-hero{flex-direction:column}.voucher-receipt-row{grid-template-columns:1fr}.package-actions{justify-content:flex-start}}
 
-<<<<<<< HEAD
 /* Voucher Packages v18 */
 .danger-outline { border: 1px solid #fecdd3; background: #fff1f3; color: #b42318; }
 .package-warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 14px; padding: 12px; font-weight: 800; margin-top: 12px; }
@@ -267,11 +266,3 @@ button[data-view-receipt] { display: none !important; }
 .download-progress { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; color: var(--muted); font-weight: 800; }
 .package-actions .btn.success, .hero-actions .btn.success { background: #067647; color: #fff; border-color: #067647; }
 .summary-note { background: #eff8ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 14px; padding: 12px; margin-top: 12px; font-weight: 800; }
-
-=======
-/* Voucher Packages v18 */
-.danger-outline { border: 1px solid #fecdd3; background: #fff1f3; color: #b42318; }
-.package-warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 14px; padding: 12px; font-weight: 800; margin-top: 12px; }
-.package-receipt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16

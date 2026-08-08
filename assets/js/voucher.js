@@ -117,24 +117,16 @@ function previewReceiptHtml(rows) {
 
 function packageHistoryHtml() {
   if (!packagesCache.length) return '<div class="empty-state">No voucher packages created yet.</div>';
-<<<<<<< HEAD
   return packagesCache.map(p => `<div class="voucher-package-card"><div><strong>Package created ${new Date(p.created_at).toLocaleString()}</strong><p class="muted">${fmtDate(p.date_from)} - ${fmtDate(p.date_to)} | ${p.receipt_count} receipts | ${money(p.total_amount)} | ${p.status}</p></div><div class="package-actions"><button class="btn small secondary" data-view-package="${p.id}">View Package</button><button class="btn small success" data-download-package="${p.id}">Download ZIP</button><button class="btn small secondary" data-email-package="${p.id}">Email Summary</button><button class="btn small danger" data-delete-package="${p.id}">Delete Package</button></div></div>`).join('');
-=======
-  return packagesCache.map(p => `<div class="voucher-package-card"><div><strong>Package created ${new Date(p.created_at).toLocaleString()}</strong><p class="muted">${fmtDate(p.date_from)} - ${fmtDate(p.date_to)} | ${p.receipt_count} receipts | ${money(p.total_amount)} | ${p.status}</p></div><div class="package-actions"><button class="btn small secondary" data-view-package="${p.id}">View Package</button><button class="btn small danger" data-delete-package="${p.id}">Delete Package</button></div></div>`).join('');
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16
 }
 
 function attachPackageButtons() {
   const createBtn = document.getElementById('createPackageBtn');
   if (createBtn) createBtn.addEventListener('click', createPackage);
   document.querySelectorAll('[data-view-package]').forEach(btn => btn.addEventListener('click', () => viewPackage(btn.dataset.viewPackage)));
-<<<<<<< HEAD
   document.querySelectorAll('[data-delete-package]').forEach(btn => btn.addEventListener('click', () => deletePackage(btn.dataset.deletePackage)));
   document.querySelectorAll('[data-download-package]').forEach(btn => btn.addEventListener('click', () => downloadPackageZip(btn.dataset.downloadPackage)));
   document.querySelectorAll('[data-email-package]').forEach(btn => btn.addEventListener('click', () => emailPackageSummary(btn.dataset.emailPackage)));
-=======
-  document.querySelectorAll('[data-delete-package]').forEach(btn => btn.addEventListener('click', () => deletePackage(btn.dataset.deletePackage)));
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16
 }
 
 function previewByDateRange() {
@@ -178,21 +170,13 @@ async function viewPackage(packageId) {
   let rows;
   try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
   packageModalTitle.textContent = 'Voucher Package Details';
-<<<<<<< HEAD
   packageModalBody.innerHTML = `<div class="tour-metrics"><div class="metric-mini"><span>Date Range</span><strong>${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}</strong></div><div class="metric-mini"><span>Receipts</span><strong>${pkg.receipt_count}</strong></div><div class="metric-mini"><span>Total</span><strong>${money(pkg.total_amount)}</strong></div><div class="metric-mini"><span>Status</span><strong>${pkg.status}</strong></div></div><h3 style="margin-top:18px">Included Receipts</h3><div class="voucher-receipt-list">${rows.map(i => receiptItemHtml(i)).join('') || '<div class="receipt-empty">No receipt items found.</div>'}</div><div class="package-actions" style="margin-top:14px"><button class="btn success" id="modalDownloadPackageBtn">Download ZIP</button><button class="btn secondary" id="modalEmailSummaryBtn">Email Summary</button></div><div id="downloadProgress" class="download-progress hidden"></div><div class="package-warning">Removing a receipt from this package returns the receipt to Available. Deleting the package returns all included receipts to Available.</div><div class="summary-note">Email Summary opens a draft email with package information. Browser-based email cannot attach the ZIP automatically. Actual email with attachment will need a Supabase Edge Function later.</div>`;
-=======
-  packageModalBody.innerHTML = `<div class="tour-metrics"><div class="metric-mini"><span>Date Range</span><strong>${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}</strong></div><div class="metric-mini"><span>Receipts</span><strong>${pkg.receipt_count}</strong></div><div class="metric-mini"><span>Total</span><strong>${money(pkg.total_amount)}</strong></div><div class="metric-mini"><span>Status</span><strong>${pkg.status}</strong></div></div><h3 style="margin-top:18px">Included Receipts</h3><div class="voucher-receipt-list">${rows.map(i => receiptItemHtml(i)).join('') || '<div class="receipt-empty">No receipt items found.</div>'}</div><div class="package-warning">Removing a receipt from this package returns the receipt to Available. Deleting the package returns all included receipts to Available.</div>`;
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16
   packageModal.classList.add('open');
-<<<<<<< HEAD
   document.querySelectorAll('[data-remove-item]').forEach(btn => btn.addEventListener('click', () => removeReceiptFromPackage(btn.dataset.removeItem, packageId)));
   const modalDownload = document.getElementById('modalDownloadPackageBtn');
   if (modalDownload) modalDownload.addEventListener('click', () => downloadPackageZip(packageId));
   const modalEmail = document.getElementById('modalEmailSummaryBtn');
   if (modalEmail) modalEmail.addEventListener('click', () => emailPackageSummary(packageId));
-=======
-  document.querySelectorAll('[data-remove-item]').forEach(btn => btn.addEventListener('click', () => removeReceiptFromPackage(btn.dataset.removeItem, packageId)));
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16
 }
 
 function receiptItemHtml(item) {
@@ -200,7 +184,6 @@ function receiptItemHtml(item) {
   return `<div class="voucher-receipt-row"><span>${r?.file_path ? '📎' : ''}</span><div><strong>${r?.customer || ''}</strong><small>${fmtDate(r?.receipt_date)} | ${receiptScopeLabel(r?.scope)} | ${r?.USAF_receipt_types?.name || ''}</small></div><div class="package-receipt-actions"><strong>${money(item.amount)}</strong><button class="btn small secondary" data-remove-item="${item.id}">Remove</button></div></div>`;
 }
 
-<<<<<<< HEAD
 async function removeReceiptFromPackage(itemId, packageId) {
   if (!confirm('Remove this receipt from the package and return it to Available?')) return;
   let rows;
@@ -351,48 +334,4 @@ async function emailPackageSummary(packageId) {
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
-=======
-async function removeReceiptFromPackage(itemId, packageId) {
-  if (!confirm('Remove this receipt from the package and return it to Available?')) return;
-  let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  const item = rows.find(r => r.id === itemId);
-  if (!item) return alert('Package item not found.');
-  const receiptId = item.receipt_id;
-  const { error: delError } = await window.usafSupabase.from('USAF_voucher_items').delete().eq('id', itemId);
-  if (delError) return alert(delError.message);
-  const { error: resetError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:false, processed_at:null, processed_by:null }).eq('id', receiptId);
-  if (resetError) return alert(resetError.message);
-  await recalcPackage(packageId);
-  packageModal.classList.remove('open');
-  await selectTour(selectedTour.id);
-}
-
-async function recalcPackage(packageId) {
-  let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  const count = rows.length;
-  const total = sumRows(rows.map(r => ({ amount:r.amount })));
-  const { error } = await window.usafSupabase.from('USAF_vouchers').update({ receipt_count:count, total_amount:total }).eq('id', packageId);
-  if (error) alert(error.message);
-}
-
-async function deletePackage(packageId) {
-  if (!confirm('Delete this voucher package? Included receipts will be returned to Available.')) return;
-  let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  const receiptIds = rows.map(r => r.receipt_id).filter(Boolean);
-  const { error: itemDeleteError } = await window.usafSupabase.from('USAF_voucher_items').delete().eq('voucher_id', packageId);
-  if (itemDeleteError) return alert(itemDeleteError.message);
-  if (receiptIds.length) {
-    const { error: resetError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:false, processed_at:null, processed_by:null }).in('id', receiptIds);
-    if (resetError) return alert(resetError.message);
-  }
-  const { error: packageDeleteError } = await window.usafSupabase.from('USAF_vouchers').delete().eq('id', packageId);
-  if (packageDeleteError) return alert(packageDeleteError.message);
-  alert('Voucher package deleted. Included receipts are Available again.');
-  await selectTour(selectedTour.id);
-}
-
->>>>>>> 596e71c807feb81bdb4439b141762cb3be30be16
 initVoucherPackages();
