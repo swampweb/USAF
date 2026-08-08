@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="assets/css/mobile.css?v=53">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=54">
 </head>
 <body data-page="profile">
   <div class="mobile-shell">
@@ -33,11 +33,11 @@
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <main class="mobile-main">
       <section class="mobile-hero"><h1>Profile</h1><p>View and update your profile in the mobile layout.</p></section>
-      <section id="mobileContent" class="mobile-content"><div class="loading-card">Loading Profile v53...</div></section>
+      <section id="mobileContent" class="mobile-content"><div class="loading-card">Loading Profile v54...</div></section>
     </main>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=53"></script>
+  <script src="../assets/js/config.js?v=54"></script>
   <script>
   (function(){
     const content = document.getElementById('mobileContent');
@@ -51,7 +51,7 @@
     function setupShell(){ const drawer = document.getElementById('mobileDrawer'); const backdrop = document.getElementById('drawerBackdrop'); const open = () => { drawer.classList.add('open'); backdrop.classList.add('open'); }; const close = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); }; document.getElementById('menuButton').addEventListener('click', open); document.getElementById('closeMenuButton').addEventListener('click', close); backdrop.addEventListener('click', close); document.getElementById('backButton').addEventListener('click', () => { if(history.length > 1) history.back(); else location.href = 'index.html'; }); document.getElementById('logoutButton').addEventListener('click', async () => { await getClient().auth.signOut(); location.href = '../login.html'; }); }
     async function loadProfile(){ const result = await getClient().from('USAF_profiles').select('*').eq('id', sessionUser.id).maybeSingle(); if(result.error) throw result.error; profile = result.data || {}; }
     function renderSummary(){
-      const isAdmin = (profile.role || 'user') === 'admin';
+      const isAdmin = (profile.role || 'user') === 'admin' && profile.is_active !== false;
       document.getElementById('drawerUsersLink').style.display = isAdmin ? '' : 'none';
       content.innerHTML = '<article class="data-card"><strong>' + esc(profile.display_name || sessionUser.email) + '</strong><span>' + esc(profile.email || sessionUser.email) + '</span><div class="data-row"><span>Rank</span><b>' + esc(profile.rank || 'Not set') + '</b></div><div class="data-row"><span>Unit</span><b>' + esc(profile.unit || 'Not set') + '</b></div><div class="data-row"><span>Duty Station</span><b>' + esc(profile.duty_station || 'Not set') + '</b></div><div class="data-row"><span>Role</span><b>' + esc(profile.role || 'user') + '</b></div><div class="data-row"><span>Active</span><b>' + (profile.is_active !== false ? 'Yes' : 'No') + '</b></div><button class="btn full" id="openFullProfileBtn">Open Full Profile</button>' + (isAdmin ? '<a class="btn secondary full" href="users.html">Open Mobile User Management</a>' : '') + '</article><div id="profileEditor"></div>';
       document.getElementById('openFullProfileBtn').addEventListener('click', renderEditor);

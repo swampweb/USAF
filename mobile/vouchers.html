@@ -8,214 +8,62 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="assets/css/mobile.css?v=52">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=55">
   <style>
-    .v52-error { border:1px solid #fecdd3; background:#fff1f3; color:#9f1239; border-radius:18px; padding:14px; font-weight:800; line-height:1.45; }
-    .v52-help { border:1px solid #fed7aa; background:#fff7ed; color:#9a3412; border-radius:18px; padding:14px; font-weight:800; line-height:1.45; }
-    .v52-check-card { display:grid; grid-template-columns:auto 1fr; align-items:start; gap:10px; }
-    .v52-check-card input { min-height:22px; width:22px; margin-top:2px; }
-  </style>
+    .v55-check-card{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}.v55-check-card input{width:22px;min-height:22px;margin-top:2px}.package-actions{display:grid;gap:10px}.download-progress{border:1px solid #bae6fd;background:#f0f9ff;color:#075985;border-radius:16px;padding:12px;font-weight:800}.hidden{display:none!important}.small-muted{font-size:12px;opacity:.78}.receipt-pill{display:inline-flex;border-radius:999px;padding:3px 8px;background:#eef2ff;color:#3730a3;font-weight:800;font-size:12px;margin-left:4px}.receipt-pill.other{background:#ecfdf5;color:#047857}</style>
 </head>
 <body data-page="vouchers">
   <div class="mobile-shell">
-    <header class="mobile-topbar">
-      <button class="menu-button" type="button" id="menuButton" aria-label="Open menu">☰</button>
-      <div class="topbar-title">
-        <strong>Orders & Travel</strong>
-        <span>Voucher Packages</span>
-      </div>
-      <button class="icon-button" type="button" id="backButton" aria-label="Back">‹</button>
-    </header>
-
-    <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
-      <div class="drawer-head">
-        <strong>Menu</strong>
-        <button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button>
-      </div>
-      <nav class="drawer-nav">
-        <a href="index.html">Dashboard</a>
-        <a href="tours.html">Tours</a>
-        <a href="receipts.html">Receipts</a>
-        <a href="vouchers.html">Voucher Packages</a>
-        <a href="profile.html">My Profile</a>
-        <a href="../dashboard.html" id="desktopViewLink">Desktop View</a>
-        <button type="button" id="logoutButton">Logout</button>
-      </nav>
-    </aside>
+    <header class="mobile-topbar"><button class="menu-button" type="button" id="menuButton" aria-label="Open menu">☰</button><div class="topbar-title"><strong>Orders & Travel</strong><span>Voucher Packages</span></div><button class="icon-button" type="button" id="backButton" aria-label="Back">‹</button></header>
+    <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true"><div class="drawer-head"><strong>Menu</strong><button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button></div><nav class="drawer-nav"><a href="index.html">Dashboard</a><a href="tours.html">Tours</a><a href="receipts.html">Receipts</a><a href="vouchers.html">Voucher Packages</a><a href="profile.html">My Profile</a><a href="../voucher-downloads.html">Desktop Voucher View</a><button type="button" id="logoutButton">Logout</button></nav></aside>
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
-
-    <main class="mobile-main">
-      <section class="mobile-hero">
-        <h1>Voucher Packages</h1>
-        <p>Create a package by selecting a Tour, then a Cycle, then the receipts tied to that Cycle.</p>
-      </section>
-      <section id="mobileContent" class="mobile-content">
-        <div class="loading-card">Loading Voucher Packages v52...</div>
-      </section>
-    </main>
+    <main class="mobile-main"><section class="mobile-hero"><h1>Voucher Packages</h1><p>Package all available receipts for a Tour and Cycle, including Per Diem and Other receipts.</p></section><section id="mobileContent" class="mobile-content"><div class="loading-card">Loading Voucher Packages v55...</div></section></main>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=52"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="../assets/js/config.js?v=55"></script>
   <script>
-    (function(){
-      const content = document.getElementById('mobileContent');
-      let client = null;
-      let currentUser = null;
-
-      function esc(value){ return String(value ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c])); }
-      function dt(value){ return value ? new Date(value + 'T00:00:00').toLocaleDateString() : 'Not set'; }
-      function money(value){ return Number(value || 0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
-      function showError(title, err){
-        console.error(title, err);
-        content.innerHTML = '<div class="v52-error"><strong>' + esc(title) + '</strong><br>' + esc(err && err.message ? err.message : err) + '</div>';
-      }
-      function showLoading(text){ content.innerHTML = '<div class="loading-card">' + esc(text || 'Loading...') + '</div>'; }
-      function getClient(){
-        if (client) return client;
-        if (!window.supabase) throw new Error('Supabase library did not load.');
-        if (!window.USAF_CONFIG) throw new Error('USAF config did not load. Check ../assets/js/config.js.');
-        client = window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL, window.USAF_CONFIG.SUPABASE_ANON_KEY, {
-          auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
-        });
-        return client;
-      }
-      async function requireAuth(){
-        const supa = getClient();
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth session check timed out. Refresh or sign in again.')), 10000));
-        const result = await Promise.race([supa.auth.getSession(), timeout]);
-        if (!result.data || !result.data.session) {
-          window.location.href = '../login.html?returnTo=mobile/vouchers.html';
-          return null;
-        }
-        currentUser = result.data.session.user;
-        return currentUser;
-      }
-      function setupShell(){
-        const drawer = document.getElementById('mobileDrawer');
-        const backdrop = document.getElementById('drawerBackdrop');
-        const open = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
-        const close = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
-        document.getElementById('menuButton').addEventListener('click', open);
-        document.getElementById('closeMenuButton').addEventListener('click', close);
-        backdrop.addEventListener('click', close);
-        document.getElementById('backButton').addEventListener('click', () => { if (history.length > 1) history.back(); else location.href = 'index.html'; });
-        document.getElementById('logoutButton').addEventListener('click', async () => { await getClient().auth.signOut(); location.href = '../login.html'; });
-      }
-      async function safeSelect(table, select, filters){
-        let q = getClient().from(table).select(select);
-        (filters || []).forEach(([method, column, value]) => { q = q[method](column, value); });
-        return await q;
-      }
-      async function loadTours(){
-        let result = await safeSelect('USAF_tour_summary','*', [['eq','user_id',currentUser.id]]);
-        if (result.error) {
-          result = await safeSelect('USAF_tours','*', [['eq','user_id',currentUser.id]]);
-        }
-        if (result.error) throw result.error;
-        return (result.data || []).sort((a,b) => String(b.orders_start_date||'').localeCompare(String(a.orders_start_date||'')));
-      }
-      async function loadCycles(tourId){
-        const result = await getClient().from('USAF_cycles').select('*').eq('user_id',currentUser.id).eq('tour_id',tourId).order('start_date',{ascending:false});
-        if (result.error) throw result.error;
-        return result.data || [];
-      }
-      async function loadReceiptsForCycle(cycleId){
-        let result = await getClient()
-          .from('USAF_receipts')
-          .select('*,USAF_receipt_types(name)')
-          .eq('user_id',currentUser.id)
-          .eq('cycle_id',cycleId)
-          .eq('is_processed',false)
-          .order('receipt_date',{ascending:false});
-        if (result.error) {
-          result = await getClient()
-            .from('USAF_receipts')
-            .select('*')
-            .eq('user_id',currentUser.id)
-            .eq('cycle_id',cycleId)
-            .order('receipt_date',{ascending:false});
-        }
-        if (result.error) throw result.error;
-        return result.data || [];
-      }
-      async function renderHome(){
-        showLoading('Loading voucher packages...');
-        let historyHtml = '';
-        const historyResult = await getClient().from('USAF_vouchers').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
-        if (historyResult.error) {
-          historyHtml = '<div class="v52-help">Package history could not be loaded: ' + esc(historyResult.error.message) + '</div>';
-        } else {
-          const rows = historyResult.data || [];
-          historyHtml = rows.length ? rows.map(v => '<article class="data-card"><strong>' + dt(v.date_from) + ' - ' + dt(v.date_to) + '</strong><span>' + esc(v.receipt_count || 0) + ' receipts | ' + money(v.total_amount) + '</span><span class="status-pill">' + esc(v.status || 'created') + '</span></article>').join('') : '<div class="empty-card">No voucher packages yet.</div>';
-        }
-        content.innerHTML = '<div class="toolbar"><strong>Voucher Packages</strong><button class="btn" id="newVoucherBtn">+ Package</button></div><div id="voucherBuilder"></div><div class="section-title">Package History</div><div class="card-list">' + historyHtml + '</div>';
-        document.getElementById('newVoucherBtn').addEventListener('click', renderTourStep);
-      }
-      async function renderTourStep(){
-        const wrap = document.getElementById('voucherBuilder');
-        wrap.innerHTML = '<div class="loading-card">Loading Tours...</div>';
-        const tours = await loadTours();
-        wrap.innerHTML = '<section class="form-card"><strong>Create Voucher Package</strong><span class="muted">Step 1: Select the Tour.</span><div class="card-list">' + (tours.length ? tours.map(t => '<article class="data-card"><strong>' + esc(t.tour_name) + '</strong><span>' + esc(t.location || 'No location') + ' | ' + dt(t.orders_start_date) + ' - ' + dt(t.orders_end_date) + '</span><button class="btn secondary" data-tour-id="' + esc(t.id) + '">Use This Tour</button></article>').join('') : '<div class="empty-card">No Tours available. Create a Tour first.</div>') + '</div><button type="button" class="btn secondary full" id="cancelBuild">Cancel</button></section>';
-        document.getElementById('cancelBuild').addEventListener('click', () => wrap.innerHTML = '');
-        wrap.querySelectorAll('[data-tour-id]').forEach(btn => btn.addEventListener('click', () => renderCycleStep(tours.find(t => t.id === btn.dataset.tourId))));
-      }
-      async function renderCycleStep(tour){
-        const wrap = document.getElementById('voucherBuilder');
-        wrap.innerHTML = '<div class="loading-card">Loading Cycles...</div>';
-        const cycles = await loadCycles(tour.id);
-        wrap.innerHTML = '<section class="form-card"><button type="button" class="back-link" id="backToTours">‹ Back to Tours</button><strong>' + esc(tour.tour_name) + '</strong><span class="muted">Step 2: Select the Cycle for this package.</span><div class="card-list">' + (cycles.length ? cycles.map(c => '<article class="data-card"><strong>' + dt(c.start_date) + ' - ' + dt(c.end_date) + '</strong><span>' + money(c.per_diem_per_day) + ' per day | ' + esc(c.status || 'active') + '</span><button class="btn secondary" data-cycle-id="' + esc(c.id) + '">Use This Cycle</button></article>').join('') : '<div class="empty-card">No Cycles found for this Tour. Add a Cycle from the Tour screen first.</div>') + '</div><button type="button" class="btn secondary full" id="cancelBuild">Cancel</button></section>';
-        document.getElementById('backToTours').addEventListener('click', renderTourStep);
-        document.getElementById('cancelBuild').addEventListener('click', () => wrap.innerHTML = '');
-        wrap.querySelectorAll('[data-cycle-id]').forEach(btn => btn.addEventListener('click', () => renderReceiptStep(tour, cycles.find(c => c.id === btn.dataset.cycleId))));
-      }
-      async function renderReceiptStep(tour, cycle){
-        const wrap = document.getElementById('voucherBuilder');
-        wrap.innerHTML = '<div class="loading-card">Loading Receipts...</div>';
-        const receipts = await loadReceiptsForCycle(cycle.id);
-        const total = receipts.reduce((sum,r) => sum + Number(r.amount || 0), 0);
-        wrap.innerHTML = '<section class="form-card"><button type="button" class="back-link" id="backToCycles">‹ Back to Cycles</button><strong>' + esc(tour.tour_name) + '</strong><span class="muted">Step 3: Review receipts for ' + dt(cycle.start_date) + ' - ' + dt(cycle.end_date) + '.</span><article class="data-card"><div class="data-row"><span>Cycle</span><b>' + dt(cycle.start_date) + ' - ' + dt(cycle.end_date) + '</b></div><div class="data-row"><span>Receipts</span><b>' + receipts.length + '</b></div><div class="data-row"><span>Total</span><b>' + money(total) + '</b></div></article><div class="card-list">' + (receipts.length ? receipts.map(r => '<label class="data-card v52-check-card"><input type="checkbox" class="receiptCheck" value="' + esc(r.id) + '" checked><span><strong>' + esc((r.USAF_receipt_types && r.USAF_receipt_types.name) || r.scope || 'Receipt') + ' - ' + money(r.amount) + '</strong><span>' + dt(r.receipt_date) + ' | ' + esc(r.notes || 'No notes') + '</span></span></label>').join('') : '<div class="empty-card">No available receipts for this Cycle. Add receipts to this Cycle first.</div>') + '</div><button class="btn full" id="createPackageBtn" ' + (receipts.length ? '' : 'disabled') + '>Create Package From This Cycle</button><button type="button" class="btn secondary full" id="cancelBuild">Cancel</button></section>';
-        document.getElementById('backToCycles').addEventListener('click', () => renderCycleStep(tour));
-        document.getElementById('cancelBuild').addEventListener('click', () => wrap.innerHTML = '');
-        const createBtn = document.getElementById('createPackageBtn');
-        if (createBtn) createBtn.addEventListener('click', () => createPackage(tour, cycle, receipts));
-      }
-      async function createPackage(tour, cycle, receipts){
-        const selectedIds = Array.from(document.querySelectorAll('.receiptCheck:checked')).map(x => x.value);
-        const selected = receipts.filter(r => selectedIds.includes(r.id));
-        if (!selected.length) { alert('Select at least one receipt.'); return; }
-        const total = selected.reduce((sum,r) => sum + Number(r.amount || 0), 0);
-        const packageResult = await getClient().from('USAF_vouchers').insert({
-          user_id: currentUser.id,
-          date_from: cycle.start_date,
-          date_to: cycle.end_date,
-          status: 'created',
-          receipt_count: selected.length,
-          total_amount: total
-        }).select().single();
-        if (packageResult.error) throw packageResult.error;
-        const items = selected.map(r => ({ voucher_id: packageResult.data.id, receipt_id: r.id, file_path: r.file_path || null, amount: Number(r.amount || 0) }));
-        if (items.length) {
-          const itemResult = await getClient().from('USAF_voucher_items').insert(items);
-          if (itemResult.error) throw itemResult.error;
-        }
-        await getClient().from('USAF_receipts').update({ is_processed:true, processed_at:new Date().toISOString(), processed_by:currentUser.id }).in('id', selected.map(r => r.id)).eq('user_id', currentUser.id);
-        alert('Voucher package created.');
-        await renderHome();
-      }
-      async function init(){
-        try {
-          setupShell();
-          showLoading('Checking session...');
-          await requireAuth();
-          if (!currentUser) return;
-          await renderHome();
-        } catch (err) {
-          showError('Mobile Voucher Packages failed to load.', err);
-        }
-      }
-      init();
-    })();
+  (function(){
+    const content=document.getElementById('mobileContent');let client=null,currentUser=null,packagesCache=[];
+    const esc=v=>String(v??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+    const dt=v=>v?new Date(v+'T00:00:00').toLocaleDateString():'Not set';
+    const money=v=>Number(v||0).toLocaleString(undefined,{style:'currency',currency:'USD'});
+    const safe=v=>String(v||'file').replace(/[^a-z0-9_ .-]/gi,'_').replace(/_+/g,'_').slice(0,80);
+    const scopeLabel=s=>s==='per_diem'?'Per Diem':'Other';
+    function showError(title,err){console.error(title,err);content.innerHTML='<div class="notice"><strong>'+esc(title)+'</strong><br>'+esc(err&&err.message?err.message:err)+'</div>';}
+    function getClient(){if(client)return client;if(!window.supabase)throw new Error('Supabase library did not load.');if(!window.USAF_CONFIG)throw new Error('USAF config did not load.');client=window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL,window.USAF_CONFIG.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return client;}
+    async function auth(){const r=await getClient().auth.getSession();if(!r.data||!r.data.session){location.href='../login.html?returnTo=mobile/vouchers.html';return null;}currentUser=r.data.session.user;return currentUser;}
+    function shell(){const d=document.getElementById('mobileDrawer'),b=document.getElementById('drawerBackdrop');const open=()=>{d.classList.add('open');b.classList.add('open')};const close=()=>{d.classList.remove('open');b.classList.remove('open')};menuButton.onclick=open;closeMenuButton.onclick=close;b.onclick=close;backButton.onclick=()=>{if(history.length>1)history.back();else location.href='index.html'};logoutButton.onclick=async()=>{await getClient().auth.signOut();location.href='../login.html'};}
+    async function tours(){let r=await getClient().from('USAF_tour_summary').select('*').eq('user_id',currentUser.id).order('orders_start_date',{ascending:false});if(r.error)r=await getClient().from('USAF_tours').select('*').eq('user_id',currentUser.id).order('orders_start_date',{ascending:false});if(r.error)throw r.error;return r.data||[];}
+    async function cycles(tourId){const r=await getClient().from('USAF_cycles').select('*').eq('user_id',currentUser.id).eq('tour_id',tourId).order('start_date',{ascending:false});if(r.error)throw r.error;return r.data||[];}
+    async function loadPackageHistory(){const r=await getClient().from('USAF_vouchers').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});if(r.error)throw r.error;packagesCache=r.data||[];}
+    async function loadReceipts(tour,cycle){
+      const fields='*,USAF_receipt_types(name)';
+      const byCycle=await getClient().from('USAF_receipts').select(fields).eq('user_id',currentUser.id).eq('cycle_id',cycle.id).eq('is_processed',false);
+      if(byCycle.error)throw byCycle.error;
+      let byTour=getClient().from('USAF_receipts').select(fields).eq('user_id',currentUser.id).eq('tour_id',tour.id).eq('is_processed',false);
+      if(cycle.start_date)byTour=byTour.gte('receipt_date',cycle.start_date);
+      if(cycle.end_date)byTour=byTour.lte('receipt_date',cycle.end_date);
+      const tourRows=await byTour;if(tourRows.error)throw tourRows.error;
+      const map=new Map();[...(byCycle.data||[]),...(tourRows.data||[])].forEach(r=>map.set(r.id,r));
+      return [...map.values()].sort((a,b)=>String(a.receipt_date||'').localeCompare(String(b.receipt_date||'')));
+    }
+    function packageBaseName(pkg){return 'USAF_Voucher_'+(pkg.date_from||'start')+'_to_'+(pkg.date_to||'end');}
+    function summary(pkg,items){const rows=items.map((i,n)=>{const r=i.USAF_receipts||{};return `${n+1}. ${scopeLabel(r.scope)} | ${dt(r.receipt_date)} | ${money(i.amount)} | ${r.customer||''} | ${r.USAF_receipt_types?.name||''}`;}).join('\n');return `USAF Voucher Package\nDate Range: ${dt(pkg.date_from)} - ${dt(pkg.date_to)}\nReceipts: ${pkg.receipt_count||items.length}\nTotal: ${money(pkg.total_amount)}\nStatus: ${pkg.status||'created'}\n\nIncluded Receipts:\n${rows}`;}
+    async function getItems(packageId){const r=await getClient().from('USAF_voucher_items').select('*,USAF_receipts(id,customer,receipt_date,scope,file_name,file_path,amount,USAF_receipt_types(name))').eq('voucher_id',packageId);if(r.error)throw r.error;return r.data||[];}
+    async function downloadPackage(packageId){const pkg=packagesCache.find(p=>p.id===packageId);if(!pkg)return alert('Package not found.');const items=await getItems(packageId);if(!items.length)return alert('No receipt items found.');const zip=new JSZip();const base=packageBaseName(pkg);zip.file('Voucher_Summary.txt',summary(pkg,items));const folder=zip.folder('Receipts');for(let i=0;i<items.length;i++){const r=items[i].USAF_receipts||{};if(!r.file_path){folder.file(String(i+1).padStart(3,'0')+'_'+safe(r.customer||'Receipt')+'.txt','No attachment file path on this receipt.');continue;}try{const signed=await getClient().storage.from('usaf-receipts').createSignedUrl(r.file_path,60);if(signed.error)throw signed.error;const res=await fetch(signed.data.signedUrl);if(!res.ok)throw new Error('Attachment download failed.');const blob=await res.blob();folder.file(String(i+1).padStart(3,'0')+'_'+safe(r.customer||'Receipt')+'_'+safe(r.file_name||'attachment'),blob);}catch(err){folder.file(String(i+1).padStart(3,'0')+'_'+safe(r.customer||'Download_Error')+'.txt',String(err.message||err));}}
+      const blob=await zip.generateAsync({type:'blob'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=base+'.zip';document.body.appendChild(link);link.click();URL.revokeObjectURL(link.href);link.remove();alert('ZIP downloaded. Use Open Email Draft and attach the ZIP before sending.');}
+    async function emailPackage(packageId){const pkg=packagesCache.find(p=>p.id===packageId);if(!pkg)return alert('Package not found.');const items=await getItems(packageId);const body=encodeURIComponent(summary(pkg,items)+'\n\nIMPORTANT: Attach the downloaded ZIP package before sending.');window.location.href='mailto:?subject='+encodeURIComponent('USAF Voucher Package')+'&body='+body;}
+    function renderHistory(){return packagesCache.length?packagesCache.map(p=>`<article class="data-card"><strong>${dt(p.date_from)} - ${dt(p.date_to)}</strong><span>${p.receipt_count||0} receipts | ${money(p.total_amount)}</span><span class="status-pill">${esc(p.status||'created')}</span><div class="package-actions"><button class="btn secondary" data-view="${p.id}">View Package</button><button class="btn" data-download="${p.id}">Download ZIP</button><button class="btn secondary" data-email="${p.id}">Open Email Draft</button></div></article>`).join(''):'<div class="empty-card">No voucher packages yet.</div>';}
+    async function home(){await loadPackageHistory();content.innerHTML='<div class="toolbar"><strong>Voucher Packages</strong><button class="btn" id="newVoucherBtn">+ Package</button></div><div id="builder"></div><div class="section-title">Package History</div><div class="card-list">'+renderHistory()+'</div>';newVoucherBtn.onclick=tourStep;bindHistoryButtons();}
+    function bindHistoryButtons(){content.querySelectorAll('[data-download]').forEach(b=>b.onclick=()=>downloadPackage(b.dataset.download).catch(e=>showError('Download failed.',e)));content.querySelectorAll('[data-email]').forEach(b=>b.onclick=()=>emailPackage(b.dataset.email).catch(e=>showError('Email failed.',e)));content.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>viewPackage(b.dataset.view).catch(e=>showError('Package view failed.',e)));}
+    async function tourStep(){const wrap=document.getElementById('builder');wrap.innerHTML='<div class="loading-card">Loading Tours...</div>';const rows=await tours();wrap.innerHTML='<section class="form-card"><strong>Step 1: Select Tour</strong><div class="card-list">'+(rows.length?rows.map(t=>`<article class="data-card"><strong>${esc(t.tour_name)}</strong><span>${esc(t.location||'No location')} | ${dt(t.orders_start_date)} - ${dt(t.orders_end_date)}</span><button class="btn secondary" data-tour="${t.id}">Use This Tour</button></article>`).join(''):'<div class="empty-card">No Tours available.</div>')+'</div></section>';wrap.querySelectorAll('[data-tour]').forEach(b=>b.onclick=()=>cycleStep(rows.find(t=>t.id===b.dataset.tour)));}
+    async function cycleStep(tour){const wrap=document.getElementById('builder');wrap.innerHTML='<div class="loading-card">Loading Cycles...</div>';const rows=await cycles(tour.id);wrap.innerHTML='<section class="form-card"><button class="back-link" id="backTours">‹ Back to Tours</button><strong>Step 2: Select Cycle</strong><span class="muted">'+esc(tour.tour_name)+'</span><div class="card-list">'+(rows.length?rows.map(c=>`<article class="data-card"><strong>${dt(c.start_date)} - ${dt(c.end_date)}</strong><span>${money(c.per_diem_per_day)} per day | ${esc(c.status||'active')}</span><button class="btn secondary" data-cycle="${c.id}">Use This Cycle</button></article>`).join(''):'<div class="empty-card">No Cycles found for this Tour.</div>')+'</div></section>';backTours.onclick=tourStep;wrap.querySelectorAll('[data-cycle]').forEach(b=>b.onclick=()=>receiptStep(tour,rows.find(c=>c.id===b.dataset.cycle)));}
+    async function receiptStep(tour,cycle){const wrap=document.getElementById('builder');wrap.innerHTML='<div class="loading-card">Loading all receipts...</div>';const rows=await loadReceipts(tour,cycle);const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);wrap.innerHTML='<section class="form-card"><button class="back-link" id="backCycles">‹ Back to Cycles</button><strong>Step 3: Review Receipts</strong><span class="muted">Includes Per Diem and Other receipts for this Cycle/date range.</span><article class="data-card"><div class="data-row"><span>Receipts</span><b>'+rows.length+'</b></div><div class="data-row"><span>Total</span><b>'+money(total)+'</b></div><div class="data-row"><span>Other</span><b>'+rows.filter(r=>r.scope!=='per_diem').length+'</b></div></article><div class="card-list">'+(rows.length?rows.map(r=>`<label class="data-card v55-check-card"><input type="checkbox" class="receiptCheck" value="${r.id}" checked><span><strong>${money(r.amount)} <span class="receipt-pill ${r.scope==='per_diem'?'':'other'}">${scopeLabel(r.scope)}</span></strong><span>${dt(r.receipt_date)} | ${esc((r.USAF_receipt_types&&r.USAF_receipt_types.name)||r.customer||'Receipt')} | ${esc(r.notes||'')}</span></span></label>`).join(''):'<div class="empty-card">No available receipts for this Cycle. Add receipts first.</div>')+'</div><button class="btn full" id="createPackageBtn" '+(rows.length?'':'disabled')+'>Create Package</button></section>';backCycles.onclick=()=>cycleStep(tour);createPackageBtn.onclick=()=>createPackage(tour,cycle,rows).catch(e=>showError('Package creation failed.',e));}
+    async function createPackage(tour,cycle,receipts){const ids=Array.from(document.querySelectorAll('.receiptCheck:checked')).map(x=>x.value);const selected=receipts.filter(r=>ids.includes(r.id));if(!selected.length)return alert('Select at least one receipt.');const total=selected.reduce((s,r)=>s+Number(r.amount||0),0);const payload={user_id:currentUser.id,tour_id:tour.id,cycle_id:cycle.id,date_from:cycle.start_date,date_to:cycle.end_date,status:'created',receipt_count:selected.length,total_amount:total};let pr=await getClient().from('USAF_vouchers').insert(payload).select().single();if(pr.error){delete payload.cycle_id;pr=await getClient().from('USAF_vouchers').insert(payload).select().single();}if(pr.error)throw pr.error;const items=selected.map(r=>({voucher_id:pr.data.id,receipt_id:r.id,file_path:r.file_path||null,amount:Number(r.amount||0)}));const ir=await getClient().from('USAF_voucher_items').insert(items);if(ir.error)throw ir.error;await getClient().from('USAF_receipts').update({is_processed:true,processed_at:new Date().toISOString(),processed_by:currentUser.id}).in('id',selected.map(r=>r.id)).eq('user_id',currentUser.id);await loadPackageHistory();content.innerHTML='<div class="notice"><strong>Package created.</strong><br>The receipts were removed from Available. You can now download the ZIP or open the email draft.</div><div class="card-list">'+renderHistory()+'</div>';bindHistoryButtons();}
+    async function viewPackage(id){const pkg=packagesCache.find(p=>p.id===id);const items=await getItems(id);content.innerHTML='<button class="back-link" id="backHist">‹ Back to Package History</button><article class="data-card"><strong>'+dt(pkg.date_from)+' - '+dt(pkg.date_to)+'</strong><span>'+items.length+' receipts | '+money(pkg.total_amount)+'</span><div class="package-actions"><button class="btn" id="dl">Download ZIP</button><button class="btn secondary" id="em">Open Email Draft</button></div></article><div class="section-title">Included Receipts</div><div class="card-list">'+items.map(i=>{const r=i.USAF_receipts||{};return `<article class="data-card"><strong>${money(i.amount)} <span class="receipt-pill ${r.scope==='per_diem'?'':'other'}">${scopeLabel(r.scope)}</span></strong><span>${dt(r.receipt_date)} | ${esc(r.customer||r.USAF_receipt_types?.name||'Receipt')}</span><span class="small-muted">${r.file_path?'Attachment included':'No attachment'}</span></article>`}).join('')+'</div>';backHist.onclick=home;dl.onclick=()=>downloadPackage(id).catch(e=>showError('Download failed.',e));em.onclick=()=>emailPackage(id).catch(e=>showError('Email failed.',e));}
+    async function init(){try{shell();await auth();if(!currentUser)return;await home();}catch(e){showError('Mobile Voucher Packages failed to load.',e)}}init();
+  })();
   </script>
 </body>
 </html>

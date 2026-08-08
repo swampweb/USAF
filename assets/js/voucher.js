@@ -89,13 +89,31 @@ async function loadAvailableReceipts() {
 }
 
 async function loadPackages() {
-  const { data, error } = await window.usafSupabase
+  const direct = await window.usafSupabase
     .from('USAF_vouchers')
     .select('*')
     .eq('tour_id', selectedTour.id)
     .order('created_at', { ascending:false });
-  if (error) { showVoucherError('Package Load Failed', error.message); packagesCache = []; return; }
-  packagesCache = data || [];
+  if (direct.error) { showVoucherError('Package Load Failed', direct.error.message); packagesCache = []; return; }
+
+  const byItem = await window.usafSupabase
+    .from('USAF_voucher_items')
+    .select('voucher_id, USAF_receipts!inner(tour_id)')
+    .eq('USAF_receipts.tour_id', selectedTour.id);
+
+  const directRows = direct.data || [];
+  const directIds = new Set(directRows.map(p => p.id));
+  const missingIds = [...new Set((byItem.data || []).map(i => i.voucher_id).filter(id => id && !directIds.has(id)))];
+  let linkedRows = [];
+  if (missingIds.length) {
+    const linked = await window.usafSupabase
+      .from('USAF_vouchers')
+      .select('*')
+      .in('id', missingIds)
+      .order('created_at', { ascending:false });
+    if (!linked.error) linkedRows = linked.data || [];
+  }
+  packagesCache = [...directRows, ...linkedRows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
 }
 
 function renderWorkspace() {
