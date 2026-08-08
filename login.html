@@ -4,78 +4,93 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Login | Orders & Travel Tracker</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=33" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=34" />
 </head>
 <body class="login-body">
   <div class="login-card">
-    <div class="login-logo"><img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo"></div>
+    <div class="login-logo">
+      <img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo">
+    </div>
     <h1 id="loginTitle">Orders & Travel Tracker</h1>
     <p>Secure orders, receipt, and voucher tracking.</p>
 
-    <form id="loginForm" class="form-grid">
-      <label>Email<input id="email" type="email" autocomplete="email" required /></label>
-      <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
+    <form id="loginForm" class="form-grid" autocomplete="on">
+      <label>Email
+        <input id="email" name="email" type="email" autocomplete="username email" required />
+      </label>
+      <label>Password
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </label>
       <button class="btn" type="submit" id="signInBtn">Sign In</button>
       <button class="btn secondary" type="button" id="signupBtn">Create Account</button>
     </form>
 
-    <div class="message" id="message"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v33 loaded</div>
+    <div class="message" id="message" aria-live="polite"></div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v34 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=33"></script>
+  <script src="assets/js/config.js?v=34"></script>
   <script>
-    const form = document.getElementById('loginForm');
+    const loginForm = document.getElementById('loginForm');
     const msg = document.getElementById('message');
     const signInBtn = document.getElementById('signInBtn');
     const signupBtn = document.getElementById('signupBtn');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo') || 'dashboard.html';
+    let client = null;
 
-    let cachedClient = null;
+    function setMessage(text) {
+      msg.textContent = text || '';
+    }
 
     function setBusy(isBusy, text) {
       signInBtn.disabled = isBusy;
       signupBtn.disabled = isBusy;
-      if (text) msg.textContent = text;
+      if (text) setMessage(text);
     }
 
     function showError(text, err) {
-      console.error('Orders Travel Login Error:', text, err || '');
-      msg.textContent = text;
-      signInBtn.disabled = false;
-      signupBtn.disabled = false;
+      console.error('Orders & Travel Login Error:', text, err || '');
+      setMessage(text || 'Login failed.');
+      setBusy(false);
     }
 
     function getClient() {
-      if (cachedClient) return cachedClient;
+      if (client) return client;
       if (!window.supabase) {
-        showError('Supabase library did not load. Refresh the page or check browser console.');
+        showError('Supabase library did not load. Refresh this page and try again.');
         return null;
       }
       if (!window.USAF_CONFIG) {
-        showError('Missing config.js. Make sure assets/js/config.js was not replaced or deleted.');
+        showError('Missing assets/js/config.js. The config file may have been replaced or deleted.');
         return null;
       }
-      const url = window.USAF_CONFIG.SUPABASE_URL;
-      const key = window.USAF_CONFIG.SUPABASE_ANON_KEY;
-      if (!url || !key) {
-        showError('Config is missing Supabase URL or anon key. Check assets/js/config.js.');
+      if (!window.USAF_CONFIG.SUPABASE_URL || !window.USAF_CONFIG.SUPABASE_ANON_KEY) {
+        showError('Supabase URL or anon key is missing from assets/js/config.js.');
         return null;
       }
-      cachedClient = window.supabase.createClient(url, key, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
+      client = window.supabase.createClient(
+        window.USAF_CONFIG.SUPABASE_URL,
+        window.USAF_CONFIG.SUPABASE_ANON_KEY,
+        {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storage: window.localStorage
+          }
         }
-      });
-      return cachedClient;
+      );
+      return client;
     }
 
-    async function raceAuth(promise, timeoutMessage) {
+    async function withTimeout(promise, timeoutMessage) {
       let timeoutId;
       const timeout = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), 8000);
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), 10000);
       });
       try {
         return await Promise.race([promise, timeout]);
@@ -84,61 +99,83 @@
       }
     }
 
+    function safeRedirect(target) {
+      const cleaned = target && !target.includes('login.html') ? target : 'dashboard.html';
+      window.location.href = cleaned;
+    }
+
     async function loadLoginBranding() {
-      const client = getClient();
-      if (!client) return;
+      const supa = getClient();
+      if (!supa) return;
       try {
-        const { data } = await client.from('USAF_settings').select('*').eq('id', true).maybeSingle();
+        const { data } = await supa.from('USAF_settings').select('*').eq('id', true).maybeSingle();
         if (!data) return;
         document.documentElement.style.setProperty('--primary', data.primary_color || '#00308F');
         document.documentElement.style.setProperty('--secondary', data.secondary_color || '#0A2342');
         document.documentElement.style.setProperty('--accent', data.accent_color || '#C0C0C0');
-        loginTitle.textContent = data.organization_name || 'Orders & Travel Tracker';
-        if (data.login_logo_path) loginLogoImg.src = data.login_logo_path;
+        document.getElementById('loginTitle').textContent = data.organization_name || 'Orders & Travel Tracker';
+        if (data.login_logo_path) document.getElementById('loginLogoImg').src = data.login_logo_path;
         if (data.login_background_path) {
-          document.body.style.backgroundImage = `linear-gradient(135deg, rgba(0,48,143,.92), rgba(10,35,66,.94)), url('${data.login_background_path}')`;
+          document.body.style.backgroundImage = "linear-gradient(135deg, rgba(0,48,143,.92), rgba(10,35,66,.94)), url('" + data.login_background_path + "')";
         }
       } catch (err) {
         console.warn('Branding load skipped:', err);
       }
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const client = getClient();
-      if (!client) return;
-
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      if (!email || !password) return showError('Enter email and password.');
-
+    async function signIn() {
+      const supa = getClient();
+      if (!supa) return;
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        showError('Enter email and password.');
+        return;
+      }
       setBusy(true, 'Signing in...');
       try {
-        const { data, error } = await raceAuth(
-          client.auth.signInWithPassword({ email, password }),
-          'Login timed out after 8 seconds. Check config.js, Supabase Auth settings, or browser console.'
+        const { data, error } = await withTimeout(
+          supa.auth.signInWithPassword({ email, password }),
+          'Login timed out after 10 seconds. Refresh the page and try again.'
         );
-        if (error) return showError(error.message, error);
-        if (!data || !data.session) return showError('No login session returned. Make sure this email exists under Supabase Authentication > Users.');
-        msg.textContent = 'Login successful. Opening dashboard...';
-        window.location.href = 'dashboard.html?v=33';
+        if (error) {
+          showError(error.message, error);
+          return;
+        }
+        if (!data || !data.session) {
+          showError('No login session returned. Confirm this account exists in Supabase Authentication > Users.');
+          return;
+        }
+        setMessage('Login successful. Opening app...');
+        safeRedirect(returnTo);
       } catch (err) {
         showError(err.message || 'Login failed.', err);
       }
+    }
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      signIn();
     });
 
-    signupBtn.addEventListener('click', async () => {
-      const client = getClient();
-      if (!client) return;
+    signInBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      signIn();
+    });
 
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      if (!email || !password) return showError('Enter email and password before creating an account.');
-
+    signupBtn.addEventListener('click', async function() {
+      const supa = getClient();
+      if (!supa) return;
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        showError('Enter email and password before creating an account.');
+        return;
+      }
       setBusy(true, 'Creating account...');
       try {
-        const { data, error } = await raceAuth(
-          client.auth.signUp({
+        const { data, error } = await withTimeout(
+          supa.auth.signUp({
             email,
             password,
             options: {
@@ -146,17 +183,19 @@
               data: { display_name: email }
             }
           }),
-          'Create account timed out after 8 seconds. Check Supabase Email provider and URL Configuration.'
+          'Create account timed out after 10 seconds.'
         );
-        if (error) return showError(error.message, error);
-        if (data && data.session) {
-          msg.textContent = 'Account created. Opening dashboard...';
-          window.location.href = 'dashboard.html?v=33';
+        if (error) {
+          showError(error.message, error);
           return;
         }
-        msg.textContent = 'Account created. If confirmation email is enabled, confirm the email, then sign in.';
-        signInBtn.disabled = false;
-        signupBtn.disabled = false;
+        if (data && data.session) {
+          setMessage('Account created. Opening app...');
+          safeRedirect(returnTo);
+          return;
+        }
+        setMessage('Account created. If email confirmation is enabled, confirm the email, then sign in.');
+        setBusy(false);
       } catch (err) {
         showError(err.message || 'Create account failed.', err);
       }
