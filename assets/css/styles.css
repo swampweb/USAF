@@ -256,3 +256,8 @@ button[data-view-receipt] { display: none !important; }
 .package-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 @media (max-width:1120px){.voucher-workspace{grid-template-columns:1fr}.voucher-date-row{grid-template-columns:1fr}}
 @media (max-width:700px){.voucher-counts{grid-template-columns:1fr}.voucher-hero{flex-direction:column}.voucher-receipt-row{grid-template-columns:1fr}.package-actions{justify-content:flex-start}}
+
+/* Voucher Packages v18 */
+.danger-outline { border: 1px solid #fecdd3; background: #fff1f3; color: #b42318; }
+.package-warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 14px; padding: 12px; font-weight: 800; margin-top: 12px; }
+.package-receipt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
