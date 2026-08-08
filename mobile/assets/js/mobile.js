@@ -1,3 +1,4 @@
+// Mobile Back Icon Update v49
 const MobileApp=(()=>{let client=null,user=null,state={tour:null,cycle:null,receipt:null};const page=document.body.dataset.page,content=document.getElementById('mobileContent');
 function supa(){if(client)return client;if(!window.supabase||!window.USAF_CONFIG)throw new Error('Supabase or config.js did not load.');client=window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL,window.USAF_CONFIG.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return client;}
 async function auth(){const{data}=await supa().auth.getSession();if(!data?.session){location.href='../login.html?returnTo=mobile/index.html';return null;}user=data.session.user;return user;}
@@ -18,7 +19,60 @@ async function renderReceipts(){const rs=await receipts();content.innerHTML=`<di
 async function receiptForm(c=null,t=null,r=null){const cs=c?[c]:await cycles();document.getElementById('form').innerHTML=`<form class="form-card" id="receiptForm"><strong>${r?'Edit':'New'} Receipt</strong><label>Cycle<select id="cycle_id" required>${cs.map(x=>`<option value="${x.id}">${dt(x.start_date)} - ${dt(x.end_date)}</option>`).join('')}</select></label><label>Scope<select id="scope"><option value="per_diem">per_diem</option><option value="other">other</option></select></label><label>Customer<input id="customer" required value="${esc(r?.customer||'USAF')}"></label><label>Date<input id="receipt_date" type="date" required value="${esc(r?.receipt_date||'')}"></label><label>Amount<input id="amount" type="number" step="0.01" min="0" required value="${esc(r?.amount||'')}"></label><label>Notes<textarea id="notes">${esc(r?.notes||'')}</textarea></label><button class="btn full">Save Receipt</button><button type="button" class="btn secondary full" id="cancel">Cancel</button></form>`;if(r?.cycle_id)cycle_id.value=r.cycle_id;scope.value=r?.scope||'per_diem';cancel.onclick=()=>form.innerHTML='';receiptForm.onsubmit=async e=>{e.preventDefault();const p={user_id:user.id,cycle_id:cycle_id.value,scope:scope.value,customer:customer.value.trim(),receipt_date:receipt_date.value,amount:Number(amount.value),notes:notes.value||null};const res=r?await supa().from('USAF_receipts').update(p).eq('id',r.id).eq('user_id',user.id):await supa().from('USAF_receipts').insert(p);if(res.error)return alert(res.error.message);c?cycleDetail(c,t):renderReceipts();};}
 function receiptDetail(r){content.innerHTML=`<button class="back-link" id="back">‹ Back to receipts</button><article class="data-card"><strong>${esc(r.USAF_receipt_types?.name||r.scope||'Receipt')}</strong><span>${dt(r.receipt_date)} | ${money(r.amount)}</span><div class="data-row"><span>Tour</span><b>${esc(r.USAF_cycles?.USAF_tours?.tour_name||'No tour')}</b></div><div class="data-row"><span>Cycle</span><b>${dt(r.USAF_cycles?.start_date)} - ${dt(r.USAF_cycles?.end_date)}</b></div><div><span class="muted">Notes</span><br>${esc(r.notes||'No notes')}</div><button class="btn secondary" id="editReceipt">Edit Receipt</button></article><div id="form"></div>`;back.onclick=renderReceipts;editReceipt.onclick=()=>receiptForm(null,null,r);}
 async function renderProfile(){const{data,error}=await supa().from('USAF_profiles').select('*').eq('id',user.id).maybeSingle();if(error)throw error;content.innerHTML=`<article class="data-card"><strong>${esc(data?.display_name||user.email)}</strong><span>${esc(user.email)}</span><div class="data-row"><span>Role</span><b>${esc(data?.role||'user')}</b></div><div class="data-row"><span>Status</span><b>${data?.is_active===false?'Inactive':'Active'}</b></div><a class="btn secondary full" href="../profile.html">Open Full Profile</a></article>`}
-async function renderVouchers(){const{data,error}=await supa().from('USAF_vouchers').select('*').eq('user_id',user.id).order('created_at',{ascending:false});if(error)throw error;content.innerHTML=`<div class="toolbar"><strong>Voucher Packages</strong><button class="btn" id="newVoucher">+ Package</button></div><div id="form"></div><div class="card-list">${(data||[]).length?data.map(v=>`<article class="data-card"><strong>${dt(v.date_from)} - ${dt(v.date_to)}</strong><span>${v.receipt_count||0} receipts | ${money(v.total_amount)}</span><span class="status-pill">${esc(v.status||'created')}</span></article>`).join(''):'<div class="empty-card">No voucher packages yet.</div>'}</div>`;newVoucher.onclick=()=>voucherForm();}
-function voucherForm(){document.getElementById('form').innerHTML=`<form class="form-card" id="voucherForm"><strong>New Voucher Package</strong><label>Date From<input id="date_from" type="date" required></label><label>Date To<input id="date_to" type="date" required></label><button class="btn full">Create Package Record</button><button type="button" class="btn secondary full" id="cancel">Cancel</button></form>`;cancel.onclick=()=>form.innerHTML='';voucherForm.onsubmit=async e=>{e.preventDefault();const{data:rs}=await supa().from('USAF_receipts').select('amount').eq('user_id',user.id).gte('receipt_date',date_from.value).lte('receipt_date',date_to.value);const p={user_id:user.id,date_from:date_from.value,date_to:date_to.value,status:'created',receipt_count:(rs||[]).length,total_amount:(rs||[]).reduce((a,r)=>a+Number(r.amount||0),0)};const r=await supa().from('USAF_vouchers').insert(p);if(r.error)return alert(r.error.message);renderVouchers();};}
+
+async function renderVouchers(){
+  const {data,error}=await supa().from('USAF_vouchers').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+  if(error)throw error;
+  content.innerHTML=`<div class="toolbar"><strong>Voucher Packages</strong><button class="btn" id="newVoucher">+ Package</button></div><div id="form"></div><div class="section-title">Package History</div><div class="card-list">${(data||[]).length?data.map(v=>`<article class="data-card"><strong>${dt(v.date_from)} - ${dt(v.date_to)}</strong><span>${v.receipt_count||0} receipts | ${money(v.total_amount)}</span><span class="status-pill">${esc(v.status||'created')}</span></article>`).join(''):'<div class="empty-card">No voucher packages yet.</div>'}</div>`;
+  newVoucher.onclick=()=>voucherTourStep();
+}
+async function voucherTourStep(){
+  const ts=await tours();
+  const wrap=document.getElementById('form');
+  wrap.innerHTML=`<section class="form-card"><strong>Create Voucher Package</strong><span class="muted">Step 1: Pick the Tour first, like the desktop workflow.</span><div class="card-list">${ts.length?ts.map(t=>`<article class="data-card"><strong>${esc(t.tour_name)}</strong><span>${esc(t.location||'No location')} | ${dt(t.orders_start_date)} - ${dt(t.orders_end_date)}</span><button class="btn secondary" data-voucher-tour="${t.id}">Use This Tour</button></article>`).join(''):'<div class="empty-card">No Tours available. Create a Tour before building a voucher package.</div>'}</div><button type="button" class="btn secondary full" id="cancelVoucher">Cancel</button></section>`;
+  cancelVoucher.onclick=()=>wrap.innerHTML='';
+  wrap.querySelectorAll('[data-voucher-tour]').forEach(btn=>btn.onclick=()=>voucherCycleStep(ts.find(t=>t.id===btn.dataset.voucherTour)));
+}
+async function voucherCycleStep(t){
+  const cs=await cycles(t.id);
+  const wrap=document.getElementById('form');
+  wrap.innerHTML=`<section class="form-card"><button type="button" class="back-link" id="backVoucherTour">‹ Back to Tour List</button><strong>${esc(t.tour_name)}</strong><span class="muted">Step 2: Pick the Cycle that this voucher package will be created from.</span><div class="card-list">${cs.length?cs.map(c=>`<article class="data-card"><strong>${dt(c.start_date)} - ${dt(c.end_date)}</strong><span>${money(c.per_diem_per_day)} per day | ${esc(c.status||'active')}</span><button class="btn secondary" data-voucher-cycle="${c.id}">Use This Cycle</button></article>`).join(''):'<div class="empty-card">No Cycles found for this Tour. Add a Cycle from the Tour screen before creating a voucher package.</div>'}</div><button type="button" class="btn secondary full" id="cancelVoucher">Cancel</button></section>`;
+  backVoucherTour.onclick=()=>voucherTourStep();
+  cancelVoucher.onclick=()=>wrap.innerHTML='';
+  wrap.querySelectorAll('[data-voucher-cycle]').forEach(btn=>btn.onclick=()=>voucherReceiptStep(t,cs.find(c=>c.id===btn.dataset.voucherCycle)));
+}
+async function voucherReceiptStep(t,c){
+  const base=supa().from('USAF_receipts').select('*,USAF_receipt_types(name),USAF_cycles(id,tour_id,start_date,end_date,USAF_tours(id,tour_name,location))').eq('user_id',user.id).eq('cycle_id',c.id).order('receipt_date',{ascending:false});
+  let {data:rs,error}=await base.eq('is_processed',false);
+  if(error){
+    const fallback=await supa().from('USAF_receipts').select('*,USAF_receipt_types(name),USAF_cycles(id,tour_id,start_date,end_date,USAF_tours(id,tour_name,location))').eq('user_id',user.id).eq('cycle_id',c.id).order('receipt_date',{ascending:false});
+    if(fallback.error)throw fallback.error;
+    rs=fallback.data||[];
+  }
+  rs=rs||[];
+  const total=rs.reduce((sum,r)=>sum+Number(r.amount||0),0);
+  const wrap=document.getElementById('form');
+  wrap.innerHTML=`<section class="form-card"><button type="button" class="back-link" id="backVoucherCycle">‹ Back to Cycles</button><strong>${esc(t.tour_name)}</strong><span class="muted">Step 3: Review receipts for ${dt(c.start_date)} - ${dt(c.end_date)}.</span><article class="data-card"><div class="data-row"><span>Cycle</span><b>${dt(c.start_date)} - ${dt(c.end_date)}</b></div><div class="data-row"><span>Receipts</span><b>${rs.length}</b></div><div class="data-row"><span>Total</span><b>${money(total)}</b></div></article><div class="card-list">${rs.length?rs.map(r=>`<label class="data-card" style="display:grid;grid-template-columns:auto 1fr;align-items:start;gap:10px"><input type="checkbox" class="voucher-receipt-check" value="${r.id}" checked style="width:22px;min-height:22px"><span><strong>${esc(r.USAF_receipt_types?.name||r.scope||'Receipt')} - ${money(r.amount)}</strong><span>${dt(r.receipt_date)} | ${esc(r.notes||'No notes')}</span></span></label>`).join(''):'<div class="empty-card">No available receipts for this Cycle. Add receipts to this Cycle before creating a voucher package.</div>'}</div><button class="btn full" id="createVoucherPackage" ${rs.length?'':'disabled'}>Create Package From This Cycle</button><button type="button" class="btn secondary full" id="cancelVoucher">Cancel</button></section>`;
+  backVoucherCycle.onclick=()=>voucherCycleStep(t);
+  cancelVoucher.onclick=()=>wrap.innerHTML='';
+  createVoucherPackage.onclick=()=>createVoucherFromCycle(t,c,rs);
+}
+async function createVoucherFromCycle(t,c,rs){
+  const checked=[...document.querySelectorAll('.voucher-receipt-check:checked')].map(x=>x.value);
+  const selected=rs.filter(r=>checked.includes(r.id));
+  if(!selected.length)return alert('Select at least one receipt for the package.');
+  const total=selected.reduce((sum,r)=>sum+Number(r.amount||0),0);
+  const pkgPayload={user_id:user.id,date_from:c.start_date,date_to:c.end_date,status:'created',receipt_count:selected.length,total_amount:total};
+  const created=await supa().from('USAF_vouchers').insert(pkgPayload).select().single();
+  if(created.error)return alert(created.error.message);
+  const items=selected.map(r=>({voucher_id:created.data.id,receipt_id:r.id,file_path:r.file_path||null,amount:Number(r.amount||0)}));
+  if(items.length){
+    const itemResult=await supa().from('USAF_voucher_items').insert(items);
+    if(itemResult.error)return alert(itemResult.error.message);
+  }
+  await supa().from('USAF_receipts').update({is_processed:true,processed_at:new Date().toISOString(),processed_by:user.id}).in('id',selected.map(r=>r.id)).eq('user_id',user.id);
+  alert('Voucher package created for '+t.tour_name+' / '+dt(c.start_date)+' - '+dt(c.end_date)+'.');
+  await renderVouchers();
+}
 async function route(){content.innerHTML='<div class="loading-card">Loading...</div>';await auth();if(!user)return;if(page==='index')home();else if(page==='tours'||page==='cycles')renderTours();else if(page==='receipts')renderReceipts();else if(page==='vouchers')renderVouchers();else if(page==='profile')renderProfile();}
 async function init(){shell();route()}return{init,route}})();MobileApp.init();
