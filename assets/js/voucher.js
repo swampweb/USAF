@@ -17,6 +17,13 @@ async function initVoucherPackages() {
 function bindVoucherEvents() {
   tourStatusFilter.addEventListener('change', renderTourCards);
   closePackageModal.addEventListener('click', () => packageModal.classList.remove('open'));
+  document.addEventListener('click', (e) => {
+    const createBtn = e.target.closest('#createPackageBtn');
+    if (createBtn) {
+      e.preventDefault();
+      createPackage().catch(err => showVoucherError('Package Creation Failed', err.message || String(err)));
+    }
+  });
 }
 
 async function loadTours() {
@@ -99,7 +106,7 @@ function renderWorkspace() {
     <div class="tour-metrics"><div class="metric-mini"><span>Available Per Diem</span><strong>${per.length}</strong></div><div class="metric-mini"><span>Available Other</span><strong>${other.length}</strong></div><div class="metric-mini"><span>Available Total</span><strong>${availableReceipts.length}</strong></div><div class="metric-mini"><span>Available Amount</span><strong>${money(sumRows(availableReceipts))}</strong></div></div>
     <div class="voucher-builder">
       <div><h2>Create Voucher Package</h2><p class="muted">Choose a date range to preview available receipts before creating the package.</p></div>
-      <div class="voucher-date-row"><label>From<input id="voucherFrom" type="date" value="${selectedTour.orders_start_date || ''}"></label><label>To<input id="voucherTo" type="date" value="${selectedTour.orders_end_date || ''}"></label><button class="btn secondary" id="previewBtn">Preview Receipts</button></div>
+      <div class="voucher-date-row"><label>From<input id="voucherFrom" type="date" value="${selectedTour.orders_start_date || ''}"></label><label>To<input id="voucherTo" type="date" value="${selectedTour.orders_end_date || ''}"></label><button class="btn secondary" type="button" id="previewBtn">Preview Receipts</button></div>
       <div id="previewArea">${previewReceiptHtml(availableReceipts)}</div>
     </div>
     <div class="card" style="box-shadow:none"><h2>Voucher Packages</h2><p class="muted">Previously created voucher packages for this Tour. Deleting a package returns included receipts to Available.</p><div class="grid" style="margin-top:12px">${packageHistoryHtml()}</div></div>
@@ -112,7 +119,7 @@ function previewReceiptHtml(rows) {
   const per = rows.filter(r => r.scope === 'per_diem');
   const other = rows.filter(r => r.scope === 'other');
   if (!rows.length) return '<div class="empty-state">No available receipts found for this Tour/date range.</div>';
-  return `<div class="tour-metrics"><div class="metric-mini"><span>Per Diem</span><strong>${per.length}</strong></div><div class="metric-mini"><span>Other</span><strong>${other.length}</strong></div><div class="metric-mini"><span>Total Receipts</span><strong>${rows.length}</strong></div><div class="metric-mini"><span>Total Amount</span><strong>${money(sumRows(rows))}</strong></div></div><div class="voucher-receipt-list" style="margin-top:12px">${rows.map(r => `<div class="voucher-receipt-row"><input type="checkbox" checked data-include-receipt="${r.id}"><div><strong>${fileIcon(r)}${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${receiptScopeLabel(r.scope)} | ${r.USAF_receipt_types?.name || ''}</small></div><strong>${money(r.amount)}</strong></div>`).join('')}</div><div class="actions" style="margin-top:12px"><button class="btn" type="button" id="createPackageBtn">Create Voucher Package</button></div>`;
+  return `<div class="tour-metrics"><div class="metric-mini"><span>Per Diem</span><strong>${per.length}</strong></div><div class="metric-mini"><span>Other</span><strong>${other.length}</strong></div><div class="metric-mini"><span>Total Receipts</span><strong>${rows.length}</strong></div><div class="metric-mini"><span>Total Amount</span><strong>${money(sumRows(rows))}</strong></div></div><div class="voucher-receipt-list" style="margin-top:12px">${rows.map(r => `<div class="voucher-receipt-row"><input type="checkbox" checked data-include-receipt="${r.id}"><div><strong>${fileIcon(r)}${r.customer}</strong><small>${fmtDate(r.receipt_date)} | ${receiptScopeLabel(r.scope)} | ${r.USAF_receipt_types?.name || ''}</small></div><strong>${money(r.amount)}</strong></div>`).join('')}</div><div class="actions" style="margin-top:12px"><button class="btn" type="button" id="createPackageBtn" data-action="create-package">Create Voucher Package</button></div>`;
 }
 
 function packageHistoryHtml() {
@@ -121,8 +128,6 @@ function packageHistoryHtml() {
 }
 
 function attachPackageButtons() {
-  const createBtn = document.getElementById('createPackageBtn');
-  if (createBtn) createBtn.addEventListener('click', () => createPackage().catch(err => showVoucherError('Package Creation Failed', err.message || String(err))));
   document.querySelectorAll('[data-view-package]').forEach(btn => btn.addEventListener('click', () => viewPackage(btn.dataset.viewPackage)));
   document.querySelectorAll('[data-delete-package]').forEach(btn => btn.addEventListener('click', () => deletePackage(btn.dataset.deletePackage)));
   document.querySelectorAll('[data-download-package]').forEach(btn => btn.addEventListener('click', () => downloadPackageZip(btn.dataset.downloadPackage)));
@@ -559,4 +564,5 @@ async function emailPackage(packageId) {
 }
 
 
+window.createPackage = createPackage;
 initVoucherPackages();
