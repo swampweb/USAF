@@ -1,170 +1,202 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login | Orders & Travel Tracker</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=35" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=36">
 </head>
 <body class="login-body">
   <div class="login-card">
     <div class="login-logo">
-      <img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo" style="max-width:280px;width:82%;max-height:170px;object-fit:contain;display:block;margin:0 auto;">
+      <img src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo" style="max-width:280px;width:82%;max-height:170px;object-fit:contain;display:block;margin:0 auto;">
     </div>
     <h1>Orders & Travel Tracker</h1>
     <p>Secure orders, receipt, and voucher tracking.</p>
 
-    <form id="loginForm" class="form-grid">
-      <label>Email<input id="email" type="email" autocomplete="email" required /></label>
-      <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
-      <button class="btn" type="button" id="signInBtn" onclick="handleSignIn()">Sign In</button>
-      <button class="btn secondary" type="button" id="signupBtn" onclick="handleSignup()">Create Account</button>
+    <form id="loginForm" class="form-grid" autocomplete="on">
+      <label>Email
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </label>
+      <label>Password
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn" type="submit" id="signInBtn">Sign In</button>
+      <button class="btn secondary" type="button" id="signupBtn">Create Account</button>
     </form>
 
-    <div class="message" id="message" style="min-height:20px;margin-top:12px;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v35 loaded</div>
+    <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v36 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=35"></script>
+  <script src="assets/js/config.js?v=36"></script>
   <script>
-    var client = null;
-    var msg = document.getElementById('message');
-    var signInBtn = document.getElementById('signInBtn');
-    var signupBtn = document.getElementById('signupBtn');
+    (function () {
+      var form = document.getElementById('loginForm');
+      var emailEl = document.getElementById('email');
+      var passwordEl = document.getElementById('password');
+      var signInBtn = document.getElementById('signInBtn');
+      var signupBtn = document.getElementById('signupBtn');
+      var message = document.getElementById('message');
+      var client = null;
 
-    function writeMessage(text) {
-      msg.textContent = text || '';
-    }
-
-    function setBusy(isBusy, text) {
-      signInBtn.disabled = isBusy;
-      signupBtn.disabled = isBusy;
-      if (text) writeMessage(text);
-    }
-
-    function showError(text, err) {
-      console.error('Login error:', text, err || '');
-      writeMessage(text || 'Login failed.');
-      signInBtn.disabled = false;
-      signupBtn.disabled = false;
-    }
-
-    function getClient() {
-      if (client) return client;
-      if (!window.supabase) {
-        showError('Supabase library did not load. Refresh the page and try again.');
-        return null;
-      }
-      if (!window.USAF_CONFIG) {
-        showError('Config file did not load. Do not replace assets/js/config.js.');
-        return null;
-      }
-      if (!window.USAF_CONFIG.SUPABASE_URL || !window.USAF_CONFIG.SUPABASE_ANON_KEY) {
-        showError('Config file is missing Supabase URL or anon key.');
-        return null;
-      }
-      client = window.supabase.createClient(
-        window.USAF_CONFIG.SUPABASE_URL,
-        window.USAF_CONFIG.SUPABASE_ANON_KEY,
-        {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: true
-          }
-        }
-      );
-      return client;
-    }
-
-    function getReturnTo() {
-      var params = new URLSearchParams(window.location.search);
-      var target = params.get('returnTo') || 'dashboard.html';
-      if (!target || target.indexOf('login.html') >= 0) return 'dashboard.html';
-      return target;
-    }
-
-    async function handleSignIn() {
-      var supa = getClient();
-      if (!supa) return;
-
-      var email = document.getElementById('email').value.trim();
-      var password = document.getElementById('password').value;
-
-      if (!email || !password) {
-        showError('Enter email and password.');
-        return;
+      function setMessage(text) {
+        message.textContent = text || '';
       }
 
-      setBusy(true, 'Signing in...');
-
-      try {
-        var result = await supa.auth.signInWithPassword({ email: email, password: password });
-        if (result.error) {
-          showError(result.error.message, result.error);
-          return;
-        }
-        if (!result.data || !result.data.session) {
-          showError('No login session returned. Check Supabase Authentication > Users for this account.');
-          return;
-        }
-
-        writeMessage('Login successful. Opening app...');
-        window.location.href = getReturnTo();
-      } catch (err) {
-        showError(err.message || 'Login failed.', err);
-      }
-    }
-
-    async function handleSignup() {
-      var supa = getClient();
-      if (!supa) return;
-
-      var email = document.getElementById('email').value.trim();
-      var password = document.getElementById('password').value;
-
-      if (!email || !password) {
-        showError('Enter email and password before creating an account.');
-        return;
+      function setBusy(isBusy, text) {
+        signInBtn.disabled = isBusy;
+        signupBtn.disabled = isBusy;
+        if (text) setMessage(text);
       }
 
-      setBusy(true, 'Creating account...');
-
-      try {
-        var result = await supa.auth.signUp({
-          email: email,
-          password: password,
-          options: {
-            emailRedirectTo: 'https://swampweb.github.io/USAF/login.html',
-            data: { display_name: email }
-          }
-        });
-
-        if (result.error) {
-          showError(result.error.message, result.error);
-          return;
-        }
-
-        if (result.data && result.data.session) {
-          writeMessage('Account created. Opening app...');
-          window.location.href = getReturnTo();
-          return;
-        }
-
-        writeMessage('Account created. If confirmation email is enabled, confirm the email, then sign in.');
+      function showError(text, errorObject) {
+        console.error('Login error:', text, errorObject || '');
+        setMessage(text || 'Login failed.');
         setBusy(false);
-      } catch (err) {
-        showError(err.message || 'Create account failed.', err);
       }
-    }
 
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      handleSignIn();
-    });
+      function getReturnTo() {
+        var match = window.location.search.match(/[?&]returnTo=([^&]+)/);
+        var target = match ? decodeURIComponent(match[1]) : 'dashboard.html';
+        if (!target || target.indexOf('login.html') !== -1) target = 'dashboard.html';
+        return target;
+      }
 
-    writeMessage('Ready to sign in.');
+      function getSupabaseClient() {
+        if (client) return client;
+
+        if (!window.supabase) {
+          showError('Supabase script did not load. Refresh the page.');
+          return null;
+        }
+        if (!window.USAF_CONFIG) {
+          showError('Config did not load. Make sure assets/js/config.js exists and was not replaced.');
+          return null;
+        }
+        if (!window.USAF_CONFIG.SUPABASE_URL || !window.USAF_CONFIG.SUPABASE_ANON_KEY) {
+          showError('Config is missing Supabase URL or anon key.');
+          return null;
+        }
+
+        client = window.supabase.createClient(
+          window.USAF_CONFIG.SUPABASE_URL,
+          window.USAF_CONFIG.SUPABASE_ANON_KEY,
+          {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true,
+              storageKey: 'orders-travel-auth'
+            }
+          }
+        );
+        return client;
+      }
+
+      async function signIn() {
+        setMessage('Sign In clicked. Preparing login...');
+
+        var supa = getSupabaseClient();
+        if (!supa) return;
+
+        var email = emailEl.value.trim();
+        var password = passwordEl.value;
+
+        if (!email || !password) {
+          showError('Enter email and password.');
+          return;
+        }
+
+        setBusy(true, 'Signing in with Supabase...');
+
+        try {
+          var result = await supa.auth.signInWithPassword({ email: email, password: password });
+          console.log('Supabase signIn result:', result);
+
+          if (result.error) {
+            showError(result.error.message, result.error);
+            return;
+          }
+
+          if (!result.data || !result.data.session) {
+            showError('Supabase did not return a login session.');
+            return;
+          }
+
+          setMessage('Login successful. Opening dashboard...');
+          window.location.assign(getReturnTo());
+        } catch (err) {
+          showError(err.message || 'Login failed.', err);
+        }
+      }
+
+      async function createAccount() {
+        setMessage('Create Account clicked...');
+
+        var supa = getSupabaseClient();
+        if (!supa) return;
+
+        var email = emailEl.value.trim();
+        var password = passwordEl.value;
+
+        if (!email || !password) {
+          showError('Enter email and password before creating an account.');
+          return;
+        }
+
+        setBusy(true, 'Creating account...');
+
+        try {
+          var result = await supa.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+              emailRedirectTo: 'https://swampweb.github.io/USAF/login.html',
+              data: { display_name: email }
+            }
+          });
+          console.log('Supabase signup result:', result);
+
+          if (result.error) {
+            showError(result.error.message, result.error);
+            return;
+          }
+
+          if (result.data && result.data.session) {
+            setMessage('Account created. Opening dashboard...');
+            window.location.assign(getReturnTo());
+            return;
+          }
+
+          setMessage('Account created. If email confirmation is enabled, confirm the email, then sign in.');
+          setBusy(false);
+        } catch (err) {
+          showError(err.message || 'Create account failed.', err);
+        }
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        signIn();
+      });
+
+      signInBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        signIn();
+      });
+
+      signupBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        createAccount();
+      });
+
+      window.handleSignInDebug = signIn;
+      window.handleSignupDebug = createAccount;
+
+      setMessage('Ready to sign in.');
+    })();
   </script>
 </body>
 </html>
