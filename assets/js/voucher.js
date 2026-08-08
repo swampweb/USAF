@@ -350,7 +350,7 @@ function showDownloadReadyModal(packageId, zipName) {
   packageModalTitle.textContent = 'Package Downloaded';
   packageModalBody.innerHTML = `<div class="voucher-ready-modal"><div class="voucher-ready-icon">📦</div><h2 class="voucher-ready-title">Voucher Package Downloaded</h2><p class="voucher-ready-text">Your voucher package ZIP has downloaded successfully. The email draft cannot attach the ZIP automatically, so attach the downloaded ZIP before sending.</p><div class="voucher-ready-steps"><div>1. Click Open Email Draft if you want to send this packet.</div><div>2. Attach the downloaded ZIP file before sending.</div><div>3. Upload the ZIP contents or receipt files to DTS as needed.</div></div><p class="voucher-ready-text"><strong>Downloaded file:</strong> ${zipName}</p><div class="actions"><button class="btn" id="readyEmailBtn">Open Email Draft</button><button class="btn secondary" id="readyCloseBtn">Close</button></div></div>`;
   packageModal.classList.add('open');
-  document.getElementById('readyEmailBtn').addEventListener('click', () => { emailPackage(packageId); });
+  document.getElementById('readyEmailBtn').addEventListener('click', () => emailPackage(packageId));
   document.getElementById('readyCloseBtn').addEventListener('click', () => packageModal.classList.remove('open'));
 }
 
@@ -429,11 +429,15 @@ async function emailPackage(packageId) {
   const pkg = packagesCache.find(p => p.id === packageId);
   if (!pkg) return alert('Package not found.');
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
+  try {
+    rows = await getPackageItems(packageId);
+  } catch (err) {
+    return alert(err.message);
+  }
   const subject = encodeURIComponent('USAF Voucher Package - ' + (selectedTour?.tour_name || 'Tour'));
-  const body = encodeURIComponent(buildPackageSummary(pkg, rows) + '
-
-IMPORTANT: The voucher ZIP package was downloaded separately. Attach the downloaded ZIP file to this email before sending.');
+  const summary = buildPackageSummary(pkg, rows);
+  const note = 'IMPORTANT: The voucher ZIP package was downloaded separately. Attach the downloaded ZIP file to this email before sending.';
+  const body = encodeURIComponent(summary + '\n\n' + note);
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
