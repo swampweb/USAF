@@ -1,4 +1,4 @@
-// Mobile Tours/Cycles Repair v57
+// Mobile Tours/Cycles Repair v60
 const MobileApp = (() => {
   let client = null;
   let user = null;
@@ -113,19 +113,32 @@ const MobileApp = (() => {
 
   async function saveTour(e, existing){
     e.preventDefault();
-    const start = orders_start_date.value;
-    const end = orders_end_date.value;
+    const tourNameEl = document.getElementById('tour_name');
+    const locationEl = document.getElementById('location');
+    const ordersNumberEl = document.getElementById('orders_number');
+    const startEl = document.getElementById('orders_start_date');
+    const endEl = document.getElementById('orders_end_date');
+    const statusEl = document.getElementById('status');
+    const notesEl = document.getElementById('notes');
+
+    const start = startEl?.value || '';
+    const end = endEl?.value || '';
     if (start && end && end < start) return alert('Tour End Date cannot be before Tour Start Date.');
+
     const payload = {
       user_id:user.id,
-      tour_name:tour_name.value.trim(),
-      location:location.value.trim() || null,
-      orders_number:orders_number.value.trim() || null,
+      tour_name:(tourNameEl?.value || '').trim(),
+      location:(locationEl?.value || '').trim() || null,
+      orders_number:(ordersNumberEl?.value || '').trim() || null,
       orders_start_date:start,
       orders_end_date:end,
-      status:status.value,
-      notes:notes.value.trim() || null
+      status:statusEl?.value || 'active',
+      notes:(notesEl?.value || '').trim() || null
     };
+
+    if (!payload.tour_name) return alert('Tour Name is required.');
+    if (!payload.orders_start_date || !payload.orders_end_date) return alert('Start Date and End Date are required.');
+
     const result = existing
       ? await supa().from('USAF_tours').update(payload).eq('id', existing.id).eq('user_id', user.id).select().single()
       : await supa().from('USAF_tours').insert(payload).select().single();
