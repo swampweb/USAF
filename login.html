@@ -6,7 +6,7 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=38">
+  <link rel="stylesheet" href="assets/css/styles.css?v=41">
 </head>
 <body class="login-body">
   <div class="login-card">
@@ -28,11 +28,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Repair v38 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Redirect v41 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=38"></script>
+  <script src="assets/js/config.js?v=41"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -43,165 +43,83 @@
       var message = document.getElementById('message');
       var client = null;
 
-      try {
-        localStorage.removeItem('orders-travel-auth');
-      } catch (ignore) {}
-
-      function setMessage(text) {
-        message.textContent = text || '';
-      }
-
+      function setMessage(text) { message.textContent = text || ''; }
       function setBusy(isBusy, text) {
         signInBtn.disabled = isBusy;
         signupBtn.disabled = isBusy;
         if (text) setMessage(text);
       }
-
       function showError(text, errorObject) {
         console.error('Login error:', text, errorObject || '');
         setMessage(text || 'Login failed.');
         signInBtn.disabled = false;
         signupBtn.disabled = false;
       }
-
-      function getReturnTo() {
-        var match = window.location.search.match(/[?&]returnTo=([^&]+)/);
-        var target = match ? decodeURIComponent(match[1]) : 'dashboard.html';
-        if (!target || target.indexOf('login.html') !== -1) target = 'dashboard.html';
-        return target;
-      }
-
+      function dashboardUrl() { return '/USAF/dashboard.html'; }
       function getSupabaseClient() {
         if (client) return client;
-
-        if (!window.supabase) {
-          showError('Supabase script did not load. Refresh the page.');
-          return null;
-        }
-        if (!window.USAF_CONFIG) {
-          showError('Config did not load. Make sure assets/js/config.js exists and was not replaced.');
-          return null;
-        }
-        if (!window.USAF_CONFIG.SUPABASE_URL || !window.USAF_CONFIG.SUPABASE_ANON_KEY) {
-          showError('Config is missing Supabase URL or anon key.');
-          return null;
-        }
-
-        client = window.supabase.createClient(
-          window.USAF_CONFIG.SUPABASE_URL,
-          window.USAF_CONFIG.SUPABASE_ANON_KEY,
-          {
-            auth: {
-              persistSession: true,
-              autoRefreshToken: true,
-              detectSessionInUrl: true
-            }
-          }
-        );
+        if (!window.supabase) { showError('Supabase script did not load. Refresh the page.'); return null; }
+        if (!window.USAF_CONFIG) { showError('Config did not load. Make sure assets/js/config.js exists and was not replaced.'); return null; }
+        if (!window.USAF_CONFIG.SUPABASE_URL || !window.USAF_CONFIG.SUPABASE_ANON_KEY) { showError('Config is missing Supabase URL or anon key.'); return null; }
+        client = window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL, window.USAF_CONFIG.SUPABASE_ANON_KEY, {
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        });
         return client;
       }
-
-      async function signIn() {
-        setMessage('Sign In clicked. Preparing login...');
-
+      async function redirectIfAlreadySignedIn() {
         var supa = getSupabaseClient();
         if (!supa) return;
-
+        try {
+          var result = await supa.auth.getSession();
+          if (result && result.data && result.data.session) {
+            setMessage('Existing session found. Opening dashboard...');
+            window.location.replace(dashboardUrl());
+          } else {
+            setMessage('Ready to sign in.');
+          }
+        } catch (err) {
+          console.warn('Existing session check skipped:', err);
+          setMessage('Ready to sign in.');
+        }
+      }
+      async function signIn() {
+        var supa = getSupabaseClient();
+        if (!supa) return;
         var email = emailEl.value.trim();
         var password = passwordEl.value;
-
-        if (!email || !password) {
-          showError('Enter email and password.');
-          return;
-        }
-
-        setBusy(true, 'Signing in with Supabase...');
-
+        if (!email || !password) { showError('Enter email and password.'); return; }
+        setBusy(true, 'Signing in...');
         try {
           var result = await supa.auth.signInWithPassword({ email: email, password: password });
           console.log('Supabase signIn result:', result);
-
-          if (result.error) {
-            showError(result.error.message, result.error);
-            return;
-          }
-
-          if (!result.data || !result.data.session) {
-            showError('Supabase did not return a login session.');
-            return;
-          }
-
+          if (result.error) { showError(result.error.message, result.error); return; }
+          if (!result.data || !result.data.session) { showError('Supabase did not return a login session.'); return; }
           setMessage('Login successful. Opening dashboard...');
-          window.location.assign(getReturnTo());
-        } catch (err) {
-          showError(err.message || 'Login failed.', err);
-        }
+          window.location.replace(dashboardUrl());
+        } catch (err) { showError(err.message || 'Login failed.', err); }
       }
-
       async function createAccount() {
-        setMessage('Create Account clicked...');
-
         var supa = getSupabaseClient();
         if (!supa) return;
-
         var email = emailEl.value.trim();
         var password = passwordEl.value;
-
-        if (!email || !password) {
-          showError('Enter email and password before creating an account.');
-          return;
-        }
-
+        if (!email || !password) { showError('Enter email and password before creating an account.'); return; }
         setBusy(true, 'Creating account...');
-
         try {
-          var result = await supa.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-              emailRedirectTo: 'https://swampweb.github.io/USAF/login.html',
-              data: { display_name: email }
-            }
-          });
+          var result = await supa.auth.signUp({ email: email, password: password, options: { emailRedirectTo: 'https://swampweb.github.io/USAF/login.html', data: { display_name: email } } });
           console.log('Supabase signup result:', result);
-
-          if (result.error) {
-            showError(result.error.message, result.error);
-            return;
-          }
-
-          if (result.data && result.data.session) {
-            setMessage('Account created. Opening dashboard...');
-            window.location.assign(getReturnTo());
-            return;
-          }
-
+          if (result.error) { showError(result.error.message, result.error); return; }
+          if (result.data && result.data.session) { setMessage('Account created. Opening dashboard...'); window.location.replace(dashboardUrl()); return; }
           setMessage('Account created. If email confirmation is enabled, confirm the email, then sign in.');
           setBusy(false);
-        } catch (err) {
-          showError(err.message || 'Create account failed.', err);
-        }
+        } catch (err) { showError(err.message || 'Create account failed.', err); }
       }
-
-      form.addEventListener('submit', function (event) {
-        event.preventDefault();
-        signIn();
-      });
-
-      signInBtn.addEventListener('click', function (event) {
-        event.preventDefault();
-        signIn();
-      });
-
-      signupBtn.addEventListener('click', function (event) {
-        event.preventDefault();
-        createAccount();
-      });
-
+      form.addEventListener('submit', function (event) { event.preventDefault(); signIn(); });
+      signInBtn.addEventListener('click', function (event) { event.preventDefault(); signIn(); });
+      signupBtn.addEventListener('click', function (event) { event.preventDefault(); createAccount(); });
       window.handleSignInDebug = signIn;
       window.handleSignupDebug = createAccount;
-
-      setMessage('Ready to sign in.');
+      redirectIfAlreadySignedIn();
     })();
   </script>
 </body>
