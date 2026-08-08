@@ -6,7 +6,7 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=44">
+  <link rel="stylesheet" href="assets/css/styles.css?v=45">
   <style id="loginBackgroundStyle"></style>
 </head>
 <body class="login-body">
@@ -29,11 +29,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v44 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v45 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=44"></script>
+  <script src="assets/js/config.js?v=45"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -99,7 +99,7 @@
         var supa = getSupabaseClient();
         if (!supa) return;
         try {
-          var result = await supa.from('USAF_settings').select('*').maybeSingle();
+          var result = await supa.from('USAF_settings').select('*').eq('id', true).maybeSingle();
           if (result.error) {
             console.warn('Login branding load skipped:', result.error);
             return;
@@ -115,7 +115,7 @@
           if (bg) {
             applyLoginBackground(bg);
           } else {
-            console.warn('No login background URL was found in USAF_settings. Expected login_background_path.');
+            console.warn('No login background URL was found in USAF_settings row id=true. Expected login_background_path.');
           }
         } catch (err) {
           console.warn('Login branding load skipped:', err);
