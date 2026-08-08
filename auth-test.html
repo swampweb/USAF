@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auth Test | Orders & Travel Tracker</title>
+  <link rel="icon" href="/USAF/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="assets/css/styles.css?v=40">
+  <style>
+    body { visibility: visible !important; padding: 24px; background: #f8fafc; }
+    .test-wrap { max-width: 980px; margin: 0 auto; }
+    .test-card { background: #fff; border: 1px solid #dbe3ef; border-radius: 18px; padding: 18px; margin-bottom: 14px; box-shadow: 0 10px 28px rgba(15,23,42,.08); }
+    .pass { color: #047857; font-weight: 900; }
+    .fail { color: #b91c1c; font-weight: 900; }
+    .warn { color: #b45309; font-weight: 900; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 12px; overflow:auto; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div class="test-wrap">
+    <h1>Orders & Travel Tracker Auth Test</h1>
+    <p>This page does not redirect. It tests the same config, Supabase client, session, and profile data used by the app.</p>
+    <div class="test-card" id="summary">Running tests...</div>
+    <div class="test-card"><h2>Details</h2><pre id="details">Loading...</pre></div>
+    <div class="test-card"><h2>Actions</h2><div class="actions"><button class="btn" id="dashboardBtn">Open Dashboard</button><button class="btn secondary" id="loginBtn">Open Login</button><button class="btn secondary" id="clearOldBtn">Clear Old Auth Keys</button></div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=40"></script>
+  <script src="assets/js/supabaseClient.js?v=40"></script>
+  <script>
+    const summary = document.getElementById('summary');
+    const details = document.getElementById('details');
+
+    function safe(obj) {
+      return JSON.stringify(obj, (key, value) => {
+        if (key && key.toLowerCase().includes('token')) return '[token hidden]';
+        if (key && key.toLowerCase().includes('key')) return '[key hidden]';
+        return value;
+      }, 2);
+    }
+
+    async function runTest() {
+      const report = {
+        page: 'auth-test.html v40',
+        url: location.href,
+        configLoaded: !!window.USAF_CONFIG,
+        supabaseLibraryLoaded: !!window.supabase,
+        usafSupabaseLoaded: !!window.usafSupabase,
+        localStorageAuthKeys: Object.keys(localStorage).filter(k => k.toLowerCase().includes('auth') || k.toLowerCase().includes('supabase') || k.toLowerCase().includes('sb-')),
+        sessionCheck: null,
+        profileCheck: null,
+        errors: []
+      };
+
+      try {
+        if (!window.usafSupabase) throw new Error('window.usafSupabase is missing. supabaseClient.js did not load correctly.');
+        const sessionResult = await window.usafSupabase.auth.getSession();
+        report.sessionCheck = {
+          hasError: !!sessionResult.error,
+          errorMessage: sessionResult.error ? sessionResult.error.message : null,
+          hasSession: !!(sessionResult.data && sessionResult.data.session),
+          userEmail: sessionResult.data && sessionResult.data.session ? sessionResult.data.session.user.email : null,
+          userId: sessionResult.data && sessionResult.data.session ? sessionResult.data.session.user.id : null
+        };
+
+        if (sessionResult.data && sessionResult.data.session) {
+          const userId = sessionResult.data.session.user.id;
+          const profileResult = await window.usafSupabase.from('USAF_profiles').select('*').eq('id', userId).maybeSingle();
+          report.profileCheck = {
+            hasError: !!profileResult.error,
+            errorMessage: profileResult.error ? profileResult.error.message : null,
+            foundProfile: !!profileResult.data,
+            role: profileResult.data ? profileResult.data.role : null,
+            email: profileResult.data ? profileResult.data.email : null
+          };
+        }
+      } catch (err) {
+        report.errors.push(err.message || String(err));
+      }
+
+      details.textContent = safe(report);
+
+      if (!report.usafSupabaseLoaded) {
+        summary.innerHTML = '<span class="fail">FAIL:</span> Supabase client did not load. Check assets/js/supabaseClient.js.';
+      } else if (!report.sessionCheck || !report.sessionCheck.hasSession) {
+        summary.innerHTML = '<span class="fail">FAIL:</span> No session found by app Supabase client. Login session is not visible to protected pages.';
+      } else if (report.profileCheck && report.profileCheck.hasError) {
+        summary.innerHTML = '<span class="warn">SESSION OK, PROFILE ERROR:</span> Login works, but profile query failed. This can break protected pages.';
+      } else if (report.profileCheck && !report.profileCheck.foundProfile) {
+        summary.innerHTML = '<span class="warn">SESSION OK, PROFILE MISSING:</span> Login works, but no USAF_profiles row exists for this user.';
+      } else {
+        summary.innerHTML = '<span class="pass">PASS:</span> App client sees your session and profile. If dashboard still redirects, dashboard/auth.js is the next target.';
+      }
+    }
+
+    document.getElementById('dashboardBtn').addEventListener('click', () => location.href = 'dashboard.html');
+    document.getElementById('loginBtn').addEventListener('click', () => location.href = 'login.html?returnTo=dashboard.html');
+    document.getElementById('clearOldBtn').addEventListener('click', () => {
+      localStorage.removeItem('USAF_TRAVEL_TRACKER_AUTH');
+      localStorage.removeItem('orders-travel-auth');
+      alert('Old custom auth keys cleared. Default Supabase session was not removed.');
+      runTest();
+    });
+
+    runTest();
+  </script>
+</body>
+</html>
