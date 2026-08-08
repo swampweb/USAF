@@ -6,14 +6,14 @@
   <title>Login | Orders & Travel Tracker</title>
   <link rel="icon" href="/USAF/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/USAF/favicon.ico">
-  <link rel="stylesheet" href="assets/css/styles.css?v=41">
+  <link rel="stylesheet" href="assets/css/styles.css?v=42">
 </head>
 <body class="login-body">
   <div class="login-card">
     <div class="login-logo">
-      <img src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo" style="max-width:280px;width:82%;max-height:170px;object-fit:contain;display:block;margin:0 auto;">
+      <img id="loginLogoImg" src="assets/img/orders-travel-tracker-login-logo.png" alt="Orders & Travel Tracker logo" style="max-width:280px;width:82%;max-height:170px;object-fit:contain;display:block;margin:0 auto;">
     </div>
-    <h1>Orders & Travel Tracker</h1>
+    <h1 id="loginTitle">Orders & Travel Tracker</h1>
     <p>Secure orders, receipt, and voucher tracking.</p>
 
     <form id="loginForm" class="form-grid" autocomplete="on">
@@ -28,11 +28,11 @@
     </form>
 
     <div class="message" id="message" style="min-height:22px;margin-top:12px;color:#0f172a;font-weight:700;"></div>
-    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Redirect v41 loaded</div>
+    <div style="margin-top:12px;font-size:11px;color:#667085;text-align:center">Login Background Fix v42 loaded</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=41"></script>
+  <script src="assets/js/config.js?v=42"></script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');
@@ -65,6 +65,33 @@
           auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
         return client;
+      }
+      function applyLoginBackground(url) {
+        if (!url) return;
+        document.body.style.backgroundImage = "linear-gradient(135deg, rgba(0,48,143,.74), rgba(10,35,66,.82)), url('" + url + "')";
+        document.body.style.backgroundPosition = 'center center';
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundRepeat = 'no-repeat';
+      }
+      async function loadBranding() {
+        var supa = getSupabaseClient();
+        if (!supa) return;
+        try {
+          var result = await supa.from('USAF_settings').select('organization_name,primary_color,secondary_color,accent_color,login_logo_path,login_background_path').eq('id', true).maybeSingle();
+          if (result.error) {
+            console.warn('Login branding load skipped:', result.error);
+            return;
+          }
+          var data = result.data || {};
+          if (data.primary_color) document.documentElement.style.setProperty('--primary', data.primary_color);
+          if (data.secondary_color) document.documentElement.style.setProperty('--secondary', data.secondary_color);
+          if (data.accent_color) document.documentElement.style.setProperty('--accent', data.accent_color);
+          if (data.organization_name) document.getElementById('loginTitle').textContent = data.organization_name;
+          if (data.login_logo_path) document.getElementById('loginLogoImg').src = data.login_logo_path;
+          if (data.login_background_path) applyLoginBackground(data.login_background_path);
+        } catch (err) {
+          console.warn('Login branding load skipped:', err);
+        }
       }
       async function redirectIfAlreadySignedIn() {
         var supa = getSupabaseClient();
@@ -119,7 +146,7 @@
       signupBtn.addEventListener('click', function (event) { event.preventDefault(); createAccount(); });
       window.handleSignInDebug = signIn;
       window.handleSignupDebug = createAccount;
-      redirectIfAlreadySignedIn();
+      loadBranding().finally(redirectIfAlreadySignedIn);
     })();
   </script>
 </body>
