@@ -1,4 +1,3 @@
-// Desktop Tours Repair v48
 let selectedTour = null;
 let allTours = [];
 let currentCycles = [];
@@ -61,15 +60,8 @@ function renderTourCards() {
 }
 
 async function selectTour(tourId) {
-  const user = await getCurrentUser();
-  let { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).eq('user_id', user.id).maybeSingle();
+  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).single();
   if (error) return alert(error.message);
-  if (!data) {
-    const fallback = await window.usafSupabase.from('USAF_tours').select('*').eq('id', tourId).eq('user_id', user.id).maybeSingle();
-    if (fallback.error) return alert(fallback.error.message);
-    data = fallback.data;
-  }
-  if (!data) return alert('Tour not found for this user.');
   selectedTour = data;
   renderTourCards();
   await loadCycles(tourId);
@@ -77,8 +69,7 @@ async function selectTour(tourId) {
 }
 
 async function loadCycles(tourId) {
-  const user = await getCurrentUser();
-  const { data, error } = await window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tourId).eq('user_id', user.id).order('start_date');
+  const { data, error } = await window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tourId).order('start_date');
   if (error) { alert(error.message); currentCycles = []; return; }
   currentCycles = data || [];
 }
@@ -89,7 +80,7 @@ function renderTourDetail() {
   tourDetailWrap.innerHTML = `<div class="tour-detail">
     <div class="tour-detail-hero">
       <div><h2>${t.tour_name}</h2><p>${t.location || 'No location'} | ${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.orders_number || 'No orders number'}</p></div>
-      <div class="hero-actions"><button class="btn secondary" id="editTourBtn">Edit Tour</button><button class="btn secondary" id="toggleTourBtn">${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button></div>
+      <div class="hero-actions"><button class="btn secondary" id="editTourBtn">Edit Tour</button><button class="btn secondary" id="toggleTourBtn">${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button><button class="btn danger" id="deleteTourBtn">Delete Tour</button></div>
     </div>
     <div class="tour-metrics">
       <div class="metric-mini"><span>Cycles</span><strong>${t.cycle_count || 0}</strong></div>
@@ -104,6 +95,7 @@ function renderTourDetail() {
   </div>`;
   editTourBtn.addEventListener('click', () => openTourModal(t));
   toggleTourBtn.addEventListener('click', toggleTourActive);
+  deleteTourBtn.addEventListener('click', deleteTour);
   addCycleBtn.addEventListener('click', () => openCycleModal());
   document.querySelectorAll('[data-edit-cycle]').forEach(btn => btn.addEventListener('click', () => openCycleModal(currentCycles.find(c => c.id === btn.dataset.editCycle))));
   document.querySelectorAll('[data-toggle-cycle]').forEach(btn => btn.addEventListener('click', () => toggleCycleActive(btn.dataset.toggleCycle)));
@@ -140,7 +132,7 @@ async function saveTour(e) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_name:tour_name.value.trim(), location:location_name.value.trim() || null, orders_number:orders_number.value.trim() || null, orders_start_date:orders_start_date.value, orders_end_date:orders_end_date.value, status:status.value, notes:notes.value.trim() || null };
   const id = tour_id_edit.value;
-  const result = id ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).eq('user_id', user.id).select().single() : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
+  const result = id ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).select().single() : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
   if (result.error) return alert(result.error.message);
   closeTourEditor();
   await loadTours();
@@ -154,6 +146,17 @@ async function toggleTourActive() {
   await loadTours();
 }
 
+async function deleteTour() {
+  if (!selectedTour) return;
+  if (!confirm(`Delete Tour "${selectedTour.tour_name || 'selected tour'}"? This cannot be undone.`)) return;
+  const { error } = await window.usafSupabase.from('USAF_tours').delete().eq('id', selectedTour.id).eq('user_id', selectedTour.user_id || (await getCurrentUser()).id);
+  if (error) return alert('Tour delete failed. If this Tour has cycles or receipts, delete or move those records first. Supabase message: ' + error.message);
+  selectedTour = null;
+  currentCycles = [];
+  await loadTours();
+  tourDetailWrap.innerHTML = '<div class="tour-detail-empty"><div><h2>Select a Tour</h2><p>Pick an existing Tour from the list, or create a new one. Tour details and cycles will open here.</p></div></div>';
+}
+
 function openCycleModal(cycle = null) {
   if (!selectedTour) return alert('Select a Tour first.');
   cycleForm.reset();
@@ -161,6 +164,10 @@ function openCycleModal(cycle = null) {
   cycle_id_edit.value = cycle?.id || '';
   cycleModalTitle.textContent = cycle ? 'Edit Cycle' : 'Add Cycle';
   saveCycleBtn.textContent = cycle ? 'Update Cycle' : 'Save Cycle';
+  cycle_start_date.min = selectedTour.orders_start_date || '';
+  cycle_start_date.max = selectedTour.orders_end_date || '';
+  cycle_end_date.min = selectedTour.orders_start_date || '';
+  cycle_end_date.max = selectedTour.orders_end_date || '';
   if (cycle) {
     cycle_start_date.value = cycle.start_date || '';
     cycle_end_date.value = cycle.end_date || '';
@@ -174,6 +181,8 @@ function closeCycleEditor() { cycleModal.classList.remove('open'); }
 async function saveCycle(e) {
   e.preventDefault();
   const user = await getCurrentUser();
+  if (cycle_start_date.value < selectedTour.orders_start_date || cycle_start_date.value > selectedTour.orders_end_date || cycle_end_date.value < selectedTour.orders_start_date || cycle_end_date.value > selectedTour.orders_end_date) return alert('Cycle dates must be within the selected Tour date range.');
+  if (cycle_end_date.value < cycle_start_date.value) return alert('Cycle End Date cannot be before Cycle Start Date.');
   const payload = { user_id:user.id, tour_id:selected_tour_id.value, start_date:cycle_start_date.value, end_date:cycle_end_date.value, per_diem_per_day:Number(cycle_per_diem_per_day.value), status:cycle_status.value, notes:cycle_notes.value || null };
   const id = cycle_id_edit.value;
   const result = id ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id) : await window.usafSupabase.from('USAF_cycles').insert(payload);
