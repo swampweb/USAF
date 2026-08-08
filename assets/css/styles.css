@@ -266,3 +266,7 @@ button[data-view-receipt] { display: none !important; }
 .download-progress { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; color: var(--muted); font-weight: 800; }
 .package-actions .btn.success, .hero-actions .btn.success { background: #067647; color: #fff; border-color: #067647; }
 .summary-note { background: #eff8ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 14px; padding: 12px; margin-top: 12px; font-weight: 800; }
+
+/* Manual Email Attachment v22 */
+.email-attach-reminder { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 14px; padding: 12px; margin-top: 12px; font-weight: 900; }
+.download-progress { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; color: var(--muted); font-weight: 800; }
