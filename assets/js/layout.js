@@ -11,7 +11,8 @@ const USER_LINKS = [
   { label: "Tours", href: "tours.html", icon: "folder" },
   { label: "Receipts", href: "receipts.html", icon: "receipt" },
   { label: "Voucher Packages", href: "voucher-downloads.html", icon: "download" },
-  { label: "Reports", href: "reports.html", icon: "bar-chart" }
+  { label: "Reports", href: "reports.html", icon: "bar-chart" },
+  { label: "Profile", href: "profile.html", icon: "users" }
 ];
 
 function isAdminPath() {

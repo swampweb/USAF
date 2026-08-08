@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile | USAF Travel Tracker</title><link rel="stylesheet" href="assets/css/styles.css?v=29"></head><body style="visibility:hidden"><div id="app">
+<div class="profile-grid">
+  <div class="card"><h2>My Profile</h2><p class="muted">Update your personal information. Role and active status are managed by Admin.</p><form id="profileForm" class="compact-form" style="margin-top:14px">
+    <label class="span-2">Display Name<input id="display_name" required></label>
+    <label class="span-2">Email<input id="email" type="email" required></label>
+    <label>Rank<input id="rank" placeholder="MSgt, TSgt, etc."></label>
+    <label>Unit<input id="unit" placeholder="Unit or squadron"></label>
+    <label class="span-2">Duty Station<input id="duty_station" placeholder="Base or duty station"></label>
+    <div class="profile-readonly span-2" id="roleStatusNote">Role and Active status are managed by Admin.</div>
+    <div class="actions span-2"><button class="btn">Save Profile</button></div>
+  </form></div>
+  <div class="card"><h2>Change Password</h2><p class="muted">Enter a new password for your account.</p><form id="passwordForm" class="compact-form" style="margin-top:14px">
+    <label class="span-2">New Password<input id="new_password" type="password" minlength="6" required></label>
+    <label class="span-2">Confirm Password<input id="confirm_password" type="password" minlength="6" required></label>
+    <div class="actions span-2"><button class="btn">Update Password</button></div>
+  </form></div>
+</div>
+</div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/js/config.js?v=29"></script><script src="assets/js/supabaseClient.js?v=29"></script><script src="assets/js/auth.js?v=29"></script><script src="assets/js/layout.js?v=29"></script><script src="assets/js/profile.js?v=29"></script></body></html>

@@ -291,3 +291,22 @@ button[data-view-receipt] { display: none !important; }
 .theme-message-panel { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
 .theme-message-panel div { margin: 6px 0; font-weight: 800; }
 .theme-message-panel.danger { background: #fff1f3; border-color: #fecdd3; color: #9f1239; }
+
+/* v29 admin/profile and themed alerts */
+.profile-grid, .admin-user-grid { display: grid; grid-template-columns: 420px 1fr; gap: 18px; align-items: start; }
+.user-card-list { display: grid; gap: 10px; max-height: 650px; overflow: auto; padding-right: 4px; }
+.user-select-card { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 16px; padding: 14px; cursor: pointer; text-align: left; color: var(--text); display: grid; gap: 7px; }
+.user-select-card:hover, .user-select-card.active { border-color: var(--primary); background: #eff8ff; box-shadow: 0 8px 18px rgba(12,33,66,.08); }
+.user-select-card .meta { color: var(--muted); font-size: 12px; }
+.profile-readonly { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px; color: var(--muted); font-weight: 800; }
+.theme-message-icon { width: 56px; height: 56px; border-radius: 18px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; display: grid; place-items: center; font-size: 28px; margin-bottom: 12px; }
+.theme-message-icon.danger { background: linear-gradient(135deg, #b42318, #7f1d1d); }
+.theme-message-icon.success { background: linear-gradient(135deg, #067647, #064e3b); }
+.theme-message-icon.warning { background: linear-gradient(135deg, #d97706, #92400e); }
+.theme-message-title { margin: 0 0 8px; font-size: 22px; }
+.theme-message-text { color: var(--muted); line-height: 1.45; margin: 0 0 14px; }
+.theme-message-panel { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+.theme-message-panel div { margin: 6px 0; font-weight: 800; }
+.theme-message-panel.danger { background: #fff1f3; border-color: #fecdd3; color: #9f1239; }
+.voucher-ready-modal .actions .btn { min-width: 150px; }
+@media (max-width: 1000px) { .profile-grid, .admin-user-grid { grid-template-columns: 1fr; } }

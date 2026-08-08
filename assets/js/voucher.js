@@ -62,7 +62,7 @@ async function renderTourCards() {
 
 async function selectTour(tourId) {
   const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).single();
-  if (error) return alert(error.message);
+  if (error) return showVoucherError('Operation Failed', error.message);
   selectedTour = data;
   await loadAvailableReceipts();
   await loadPackages();
@@ -77,7 +77,7 @@ async function loadAvailableReceipts() {
     .eq('tour_id', selectedTour.id)
     .eq('is_processed', false)
     .order('receipt_date', { ascending:true });
-  if (error) { alert(error.message); availableReceipts = []; return; }
+  if (error) { showVoucherError('Receipt Load Failed', error.message); availableReceipts = []; return; }
   availableReceipts = data || [];
 }
 
@@ -87,7 +87,7 @@ async function loadPackages() {
     .select('*')
     .eq('tour_id', selectedTour.id)
     .order('created_at', { ascending:false });
-  if (error) { alert(error.message); packagesCache = []; return; }
+  if (error) { showVoucherError('Package Load Failed', error.message); packagesCache = []; return; }
   packagesCache = data || [];
 }
 
@@ -139,21 +139,35 @@ function previewByDateRange() {
 
 async function createPackage() {
   const checked = Array.from(document.querySelectorAll('[data-include-receipt]:checked')).map(cb => cb.dataset.includeReceipt);
-  if (!checked.length) return alert('Select at least one receipt to include.');
+  if (!checked.length) return showVoucherError('No Receipts Selected', 'Select at least one receipt to include in the voucher package.');
   const rows = availableReceipts.filter(r => checked.includes(r.id));
+  showCreatePackageConfirm(rows);
+}
+
+async function executeCreatePackage(rows) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_id:selectedTour.id, date_from:voucherFrom.value, date_to:voucherTo.value, status:'created', receipt_count:rows.length, total_amount:sumRows(rows), created_by:user.id };
   const { data: voucher, error } = await window.usafSupabase.from('USAF_vouchers').insert(payload).select().single();
-  if (error) return alert(error.message);
+  if (error) return showVoucherError('Package Creation Failed', error.message);
   const items = rows.map(r => ({ voucher_id:voucher.id, receipt_id:r.id, file_path:r.file_path, amount:r.amount }));
   if (items.length) {
     const { error: itemError } = await window.usafSupabase.from('USAF_voucher_items').insert(items);
-    if (itemError) return alert(itemError.message);
-    const { error: updateError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:true, processed_at:new Date().toISOString(), processed_by:user.id }).in('id', checked);
-    if (updateError) return alert(updateError.message);
+    if (itemError) return showVoucherError('Package Item Error', itemError.message);
+    const { error: updateError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:true, processed_at:new Date().toISOString(), processed_by:user.id }).in('id', rows.map(r => r.id));
+    if (updateError) return showVoucherError('Receipt Update Failed', updateError.message);
   }
-  alert('Voucher package created. Included receipts are now assigned to this package and removed from Available.');
   await selectTour(selectedTour.id);
+  showThemedMessage({
+    title: 'Voucher Package Created',
+    text: 'Voucher package created successfully. Selected receipts are now assigned to this package and removed from Available.',
+    icon: '✅',
+    kind: 'success',
+    details: [`Receipts Assigned: ${rows.length}`, `Total Amount: ${money(sumRows(rows))}`],
+    actions: [
+      { id: 'viewCreatedPackageBtn', label: 'View Package', className: '', onClick: () => viewPackage(voucher.id) },
+      { id: 'closeCreatedPackageBtn', label: 'Close', className: 'secondary', onClick: () => packageModal.classList.remove('open') }
+    ]
+  });
 }
 
 async function getPackageItems(packageId) {
@@ -168,7 +182,7 @@ async function getPackageItems(packageId) {
 async function viewPackage(packageId) {
   const pkg = packagesCache.find(p => p.id === packageId);
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Package Load Failed', err.message); }
   packageModalTitle.textContent = 'Voucher Package Details';
   packageModalBody.innerHTML = `<div class="tour-metrics"><div class="metric-mini"><span>Date Range</span><strong>${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}</strong></div><div class="metric-mini"><span>Receipts</span><strong>${pkg.receipt_count}</strong></div><div class="metric-mini"><span>Total</span><strong>${money(pkg.total_amount)}</strong></div><div class="metric-mini"><span>Status</span><strong>${pkg.status}</strong></div></div><h3 style="margin-top:18px">Included Receipts</h3><div class="voucher-receipt-list">${rows.map(i => receiptItemHtml(i)).join('') || '<div class="receipt-empty">No receipt items found.</div>'}</div><div class="package-actions" style="margin-top:14px"><button class="btn success" id="modalDownloadPackageBtn">Download ZIP</button><button class="btn secondary" id="modalEmailSummaryBtn">Open Email Draft</button></div><div id="downloadProgress" class="download-progress hidden"></div><div class="package-warning">Removing a receipt from this package returns the receipt to Available. Deleting the package returns all included receipts to Available.</div><div class="summary-note">Open Email Draft opens a draft email with package information. Browser-based email cannot attach the ZIP automatically. Actual email with attachment will need a Supabase Edge Function later.</div>`;
   packageModal.classList.add('open');
@@ -185,28 +199,35 @@ function receiptItemHtml(item) {
 }
 
 async function removeReceiptFromPackage(itemId, packageId) {
-  if (!confirm('Remove this receipt from the package and return it to Available?')) return;
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Remove Failed', err.message); }
   const item = rows.find(r => r.id === itemId);
-  if (!item) return alert('Package item not found.');
+  if (!item) return showVoucherError('Receipt Not Found', 'Package item was not found.');
+  showRemoveReceiptConfirm(itemId, packageId, item);
+}
+
+async function executeRemoveReceiptFromPackage(itemId, packageId) {
+  let rows;
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Remove Failed', err.message); }
+  const item = rows.find(r => r.id === itemId);
+  if (!item) return showVoucherError('Receipt Not Found', 'Package item was not found.');
   const receiptId = item.receipt_id;
   const { error: delError } = await window.usafSupabase.from('USAF_voucher_items').delete().eq('id', itemId);
-  if (delError) return alert(delError.message);
+  if (delError) return showVoucherError('Remove Failed', delError.message);
   const { error: resetError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:false, processed_at:null, processed_by:null }).eq('id', receiptId);
-  if (resetError) return alert(resetError.message);
+  if (resetError) return showVoucherError('Receipt Update Failed', resetError.message);
   await recalcPackage(packageId);
-  packageModal.classList.remove('open');
   await selectTour(selectedTour.id);
+  showThemedMessage({ title: 'Receipt Returned', text: 'The receipt was removed from the package and is now Available again.', icon: '✅', kind: 'success' });
 }
 
 async function recalcPackage(packageId) {
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Recalculate Failed', err.message); }
   const count = rows.length;
   const total = sumRows(rows.map(r => ({ amount:r.amount })));
   const { error } = await window.usafSupabase.from('USAF_vouchers').update({ receipt_count:count, total_amount:total }).eq('id', packageId);
-  if (error) alert(error.message);
+  if (error) showVoucherError('Recalculate Failed', error.message);
 }
 
 
@@ -243,33 +264,26 @@ function showDeletePackageConfirm(packageId, pkg, rowCount) {
 }
 async function deletePackage(packageId) {
   const pkg = packagesCache.find(p => p.id === packageId);
-  if (!pkg) return showThemedMessage({ title: 'Package Not Found', text: 'The selected voucher package could not be found.', icon: '⚠️', kind: 'danger' });
+  if (!pkg) return showVoucherError('Package Not Found', 'The selected voucher package could not be found.');
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return showThemedMessage({ title: 'Delete Failed', text: err.message || 'Could not load package items.', icon: '⚠️', kind: 'danger' }); }
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Delete Failed', err.message); }
   showDeletePackageConfirm(packageId, pkg, rows.length);
 }
 
 async function executeDeletePackage(packageId) {
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return showThemedMessage({ title: 'Delete Failed', text: err.message || 'Could not load package items.', icon: '⚠️', kind: 'danger' }); }
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Delete Failed', err.message); }
   const receiptIds = rows.map(r => r.receipt_id).filter(Boolean);
   const { error: itemDeleteError } = await window.usafSupabase.from('USAF_voucher_items').delete().eq('voucher_id', packageId);
-  if (itemDeleteError) return showThemedMessage({ title: 'Delete Failed', text: itemDeleteError.message, icon: '⚠️', kind: 'danger' });
+  if (itemDeleteError) return showVoucherError('Delete Failed', itemDeleteError.message);
   if (receiptIds.length) {
     const { error: resetError } = await window.usafSupabase.from('USAF_receipts').update({ is_processed:false, processed_at:null, processed_by:null }).in('id', receiptIds);
-    if (resetError) return showThemedMessage({ title: 'Delete Failed', text: resetError.message, icon: '⚠️', kind: 'danger' });
+    if (resetError) return showVoucherError('Receipt Update Failed', resetError.message);
   }
   const { error: packageDeleteError } = await window.usafSupabase.from('USAF_vouchers').delete().eq('id', packageId);
-  if (packageDeleteError) return showThemedMessage({ title: 'Delete Failed', text: packageDeleteError.message, icon: '⚠️', kind: 'danger' });
-  packageModal.classList.remove('open');
+  if (packageDeleteError) return showVoucherError('Delete Failed', packageDeleteError.message);
   await selectTour(selectedTour.id);
-  showThemedMessage({
-    title: 'Package Deleted',
-    text: 'Voucher package deleted successfully. Included receipts are Available again.',
-    icon: '✅',
-    kind: 'success',
-    details: [`Receipts Returned: ${receiptIds.length}`]
-  });
+  showThemedMessage({ title: 'Package Deleted', text: 'Voucher package deleted successfully. Included receipts are Available again.', icon: '✅', kind: 'success', details: [`Receipts Returned: ${receiptIds.length}`] });
 }
 
 
@@ -458,15 +472,12 @@ function setDownloadProgress(text) {
 }
 
 async function downloadPackageZip(packageId) {
-  if (!window.JSZip) {
-    alert('ZIP library did not load. Refresh the page and try again.');
-    return;
-  }
+  if (!window.JSZip) return showVoucherError('Download Failed', 'ZIP library did not load. Refresh the page and try again.');
   const pkg = packagesCache.find(p => p.id === packageId);
-  if (!pkg) return alert('Package not found.');
+  if (!pkg) return showVoucherError('Package Not Found', 'The selected voucher package could not be found.');
   let rows;
-  try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  if (!rows.length) return alert('This package has no receipt items.');
+  try { rows = await getPackageItems(packageId); } catch (err) { return showVoucherError('Package Load Failed', err.message); }
+  if (!rows.length) return showVoucherError('No Receipt Items', 'This package has no receipt items.');
 
   const zip = new JSZip();
   const baseName = packageBaseName(pkg);
