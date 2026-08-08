@@ -279,3 +279,7 @@ button[data-view-receipt] { display: none !important; }
 .voucher-ready-text { color: var(--muted); line-height: 1.45; margin: 0 0 14px; }
 .voucher-ready-steps { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
 .voucher-ready-steps div { margin: 6px 0; font-weight: 800; }
+
+
+/* Voucher email draft fix v24 */
+.voucher-ready-modal .actions .btn { min-width: 150px; }

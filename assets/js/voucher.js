@@ -117,7 +117,7 @@ function previewReceiptHtml(rows) {
 
 function packageHistoryHtml() {
   if (!packagesCache.length) return '<div class="empty-state">No voucher packages created yet.</div>';
-  return packagesCache.map(p => `<div class="voucher-package-card"><div><strong>Package created ${new Date(p.created_at).toLocaleString()}</strong><p class="muted">${fmtDate(p.date_from)} - ${fmtDate(p.date_to)} | ${p.receipt_count} receipts | ${money(p.total_amount)} | ${p.status}</p></div><div class="package-actions"><button class="btn small secondary" data-view-package="${p.id}">View Package</button><button class="btn small success" data-download-package="${p.id}">Download ZIP</button><button class="btn small secondary" data-email-package="${p.id}">Email Package</button><button class="btn small danger" data-delete-package="${p.id}">Delete Package</button></div></div>`).join('');
+  return packagesCache.map(p => `<div class="voucher-package-card"><div><strong>Package created ${new Date(p.created_at).toLocaleString()}</strong><p class="muted">${fmtDate(p.date_from)} - ${fmtDate(p.date_to)} | ${p.receipt_count} receipts | ${money(p.total_amount)} | ${p.status}</p></div><div class="package-actions"><button class="btn small secondary" data-view-package="${p.id}">View Package</button><button class="btn small success" data-download-package="${p.id}">Download ZIP</button><button class="btn small secondary" data-email-package="${p.id}">Open Email Draft</button><button class="btn small danger" data-delete-package="${p.id}">Delete Package</button></div></div>`).join('');
 }
 
 function attachPackageButtons() {
@@ -126,7 +126,7 @@ function attachPackageButtons() {
   document.querySelectorAll('[data-view-package]').forEach(btn => btn.addEventListener('click', () => viewPackage(btn.dataset.viewPackage)));
   document.querySelectorAll('[data-delete-package]').forEach(btn => btn.addEventListener('click', () => deletePackage(btn.dataset.deletePackage)));
   document.querySelectorAll('[data-download-package]').forEach(btn => btn.addEventListener('click', () => downloadPackageZip(btn.dataset.downloadPackage)));
-  document.querySelectorAll('[data-email-package]').forEach(btn => btn.addEventListener('click', () => emailPackageSummary(btn.dataset.emailPackage)));
+  document.querySelectorAll('[data-email-package]').forEach(btn => btn.addEventListener('click', () => emailPackage(btn.dataset.emailPackage)));
 }
 
 function previewByDateRange() {
@@ -170,13 +170,13 @@ async function viewPackage(packageId) {
   let rows;
   try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
   packageModalTitle.textContent = 'Voucher Package Details';
-  packageModalBody.innerHTML = `<div class="tour-metrics"><div class="metric-mini"><span>Date Range</span><strong>${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}</strong></div><div class="metric-mini"><span>Receipts</span><strong>${pkg.receipt_count}</strong></div><div class="metric-mini"><span>Total</span><strong>${money(pkg.total_amount)}</strong></div><div class="metric-mini"><span>Status</span><strong>${pkg.status}</strong></div></div><h3 style="margin-top:18px">Included Receipts</h3><div class="voucher-receipt-list">${rows.map(i => receiptItemHtml(i)).join('') || '<div class="receipt-empty">No receipt items found.</div>'}</div><div class="package-actions" style="margin-top:14px"><button class="btn success" id="modalDownloadPackageBtn">Download ZIP</button><button class="btn secondary" id="modalEmailSummaryBtn">Email Package</button></div><div id="downloadProgress" class="download-progress hidden"></div><div class="package-warning">Removing a receipt from this package returns the receipt to Available. Deleting the package returns all included receipts to Available.</div><div class="summary-note">Email Package opens a draft email with package information. Browser-based email cannot attach the ZIP automatically. Actual email with attachment will need a Supabase Edge Function later.</div>`;
+  packageModalBody.innerHTML = `<div class="tour-metrics"><div class="metric-mini"><span>Date Range</span><strong>${fmtDate(pkg.date_from)} - ${fmtDate(pkg.date_to)}</strong></div><div class="metric-mini"><span>Receipts</span><strong>${pkg.receipt_count}</strong></div><div class="metric-mini"><span>Total</span><strong>${money(pkg.total_amount)}</strong></div><div class="metric-mini"><span>Status</span><strong>${pkg.status}</strong></div></div><h3 style="margin-top:18px">Included Receipts</h3><div class="voucher-receipt-list">${rows.map(i => receiptItemHtml(i)).join('') || '<div class="receipt-empty">No receipt items found.</div>'}</div><div class="package-actions" style="margin-top:14px"><button class="btn success" id="modalDownloadPackageBtn">Download ZIP</button><button class="btn secondary" id="modalEmailSummaryBtn">Open Email Draft</button></div><div id="downloadProgress" class="download-progress hidden"></div><div class="package-warning">Removing a receipt from this package returns the receipt to Available. Deleting the package returns all included receipts to Available.</div><div class="summary-note">Open Email Draft opens a draft email with package information. Browser-based email cannot attach the ZIP automatically. Actual email with attachment will need a Supabase Edge Function later.</div>`;
   packageModal.classList.add('open');
   document.querySelectorAll('[data-remove-item]').forEach(btn => btn.addEventListener('click', () => removeReceiptFromPackage(btn.dataset.removeItem, packageId)));
   const modalDownload = document.getElementById('modalDownloadPackageBtn');
   if (modalDownload) modalDownload.addEventListener('click', () => downloadPackageZip(packageId));
   const modalEmail = document.getElementById('modalEmailSummaryBtn');
-  if (modalEmail) modalEmail.addEventListener('click', () => emailPackageSummary(packageId));
+  if (modalEmail) modalEmail.addEventListener('click', () => emailPackage(packageId));
 }
 
 function receiptItemHtml(item) {
@@ -348,9 +348,9 @@ async function buildPackageSummaryPdf(pkg, rows) {
 
 function showDownloadReadyModal(packageId, zipName) {
   packageModalTitle.textContent = 'Package Downloaded';
-  packageModalBody.innerHTML = `<div class="voucher-ready-modal"><div class="voucher-ready-icon">📦</div><h2 class="voucher-ready-title">Voucher Package Ready</h2><p class="voucher-ready-text">Your voucher package ZIP has downloaded successfully.</p><div class="voucher-ready-steps"><div>1. Click Email Package if you want to send this packet.</div><div>2. Attach the downloaded ZIP file before sending.</div><div>3. Upload the ZIP contents or receipt files to DTS as needed.</div></div><p class="voucher-ready-text"><strong>Downloaded file:</strong> ${zipName}</p><div class="actions"><button class="btn" id="readyEmailBtn">Email Package</button><button class="btn secondary" id="readyCloseBtn">Close</button></div></div>`;
+  packageModalBody.innerHTML = `<div class="voucher-ready-modal"><div class="voucher-ready-icon">📦</div><h2 class="voucher-ready-title">Voucher Package Downloaded</h2><p class="voucher-ready-text">Your voucher package ZIP has downloaded successfully. The email draft cannot attach the ZIP automatically, so attach the downloaded ZIP before sending.</p><div class="voucher-ready-steps"><div>1. Click Open Email Draft if you want to send this packet.</div><div>2. Attach the downloaded ZIP file before sending.</div><div>3. Upload the ZIP contents or receipt files to DTS as needed.</div></div><p class="voucher-ready-text"><strong>Downloaded file:</strong> ${zipName}</p><div class="actions"><button class="btn" id="readyEmailBtn">Open Email Draft</button><button class="btn secondary" id="readyCloseBtn">Close</button></div></div>`;
   packageModal.classList.add('open');
-  document.getElementById('readyEmailBtn').addEventListener('click', () => emailPackage(packageId));
+  document.getElementById('readyEmailBtn').addEventListener('click', () => { emailPackage(packageId); });
   document.getElementById('readyCloseBtn').addEventListener('click', () => packageModal.classList.remove('open'));
 }
 
@@ -421,17 +421,19 @@ async function downloadPackageZip(packageId) {
   link.click();
   URL.revokeObjectURL(link.href);
   link.remove();
-  setDownloadProgress('ZIP package downloaded. Next step: click Email Package and attach the downloaded ZIP before sending.');
+  setDownloadProgress('ZIP package downloaded. Next step: click Open Email Draft and attach the downloaded ZIP before sending.');
   showDownloadReadyModal(packageId, `${baseName}.zip`);
 }
 
-async function emailPackageSummary(packageId) {
+async function emailPackage(packageId) {
   const pkg = packagesCache.find(p => p.id === packageId);
   if (!pkg) return alert('Package not found.');
   let rows;
   try { rows = await getPackageItems(packageId); } catch (err) { return alert(err.message); }
-  const subject = encodeURIComponent('USAF Voucher Package Summary - ' + (selectedTour?.tour_name || 'Tour'));
-  const body = encodeURIComponent(buildPackageSummary(pkg, rows) + '\n\nIMPORTANT: The voucher ZIP package was downloaded separately. Please attach the downloaded ZIP file to this email before sending.');
+  const subject = encodeURIComponent('USAF Voucher Package - ' + (selectedTour?.tour_name || 'Tour'));
+  const body = encodeURIComponent(buildPackageSummary(pkg, rows) + '
+
+IMPORTANT: The voucher ZIP package was downloaded separately. Attach the downloaded ZIP file to this email before sending.');
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
