@@ -46,6 +46,20 @@ function isActive(href) {
   return href.endsWith(file);
 }
 
+
+function assetWithCache(url) {
+  if (!url) return '';
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}v=${Date.now()}`;
+}
+function renderBrandLogo(settings) {
+  const logoPath = settings?.site_logo_path;
+  if (logoPath) {
+    return `<div class="logo-mark image-logo"><img src="${assetWithCache(logoPath)}" alt="Site logo"></div>`;
+  }
+  return '${renderBrandLogo(settings)}';
+}
+
 function iconSvg(name) {
   const icons = {
     home: '<path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
@@ -86,7 +100,7 @@ async function renderLayout(activeTitle) {
   app.innerHTML = `
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo-mark">✦</div>
+        ${renderBrandLogo(settings)}
         <div>
           <div class="brand-title">${settings.organization_name || 'USAF Travel Tracker'}</div>
           <div class="brand-subtitle">Integrity · Service · Excellence</div>
@@ -96,7 +110,7 @@ async function renderLayout(activeTitle) {
       <div class="sidebar-footer">USAF Per Diem Tracker</div>
     </aside>
     <main class="main">
-      <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${settings.dashboard_banner_path || prefix + 'assets/img/default-banner.svg'}')">
+      <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${assetWithCache(settings.dashboard_banner_path) || prefix + 'assets/img/default-banner.svg'}')">
         <div><h1>${activeTitle}</h1><p>Track receipts, cycles, vouchers, and reports.</p></div>
         <div class="user-chip"><span>${profile?.display_name || profile?.email || 'User'}</span><small>${profile?.role || 'user'}</small><button onclick="signOut()">Sign Out</button></div>
       </header>
