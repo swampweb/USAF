@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>User Management | Orders & Travel Tracker</title>
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="shortcut icon" href="../favicon.ico">
+  <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
+  <link rel="manifest" href="../site.webmanifest">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=53">
+</head>
+<body data-page="users">
+  <div class="mobile-shell">
+    <header class="mobile-topbar">
+      <button class="menu-button" type="button" id="menuButton" aria-label="Open menu">☰</button>
+      <div class="topbar-title"><strong>Orders & Travel</strong><span>User Management</span></div>
+      <button class="icon-button" type="button" id="backButton" aria-label="Back">‹</button>
+    </header>
+    <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+      <div class="drawer-head"><strong>Menu</strong><button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button></div>
+      <nav class="drawer-nav">
+        <a href="index.html">Dashboard</a>
+        <a href="tours.html">Tours</a>
+        <a href="receipts.html">Receipts</a>
+        <a href="vouchers.html">Voucher Packages</a>
+        <a href="profile.html">My Profile</a>
+        <a href="users.html">User Management</a>
+        <a href="../dashboard.html">Desktop View</a>
+        <button type="button" id="logoutButton">Logout</button>
+      </nav>
+    </aside>
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <main class="mobile-main">
+      <section class="mobile-hero"><h1>User Management</h1><p>Admin mobile view for managing users, roles, and active status.</p></section>
+      <section id="mobileContent" class="mobile-content"><div class="loading-card">Loading Users v53...</div></section>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/config.js?v=53"></script>
+  <script>
+  (function(){
+    const content = document.getElementById('mobileContent');
+    let client = null;
+    let sessionUser = null;
+    let currentProfile = null;
+    let users = [];
+    const esc = v => String(v ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+    function showError(title, err){ console.error(title, err); content.innerHTML = '<div class="notice"><strong>' + esc(title) + '</strong><br>' + esc(err && err.message ? err.message : err) + '</div>'; }
+    function getClient(){ if(client) return client; if(!window.supabase) throw new Error('Supabase library did not load.'); if(!window.USAF_CONFIG) throw new Error('USAF config did not load.'); client = window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL, window.USAF_CONFIG.SUPABASE_ANON_KEY, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } }); return client; }
+    async function requireAuth(){ const result = await getClient().auth.getSession(); if(!result.data || !result.data.session){ location.href = '../login.html?returnTo=mobile/users.html'; return null; } sessionUser = result.data.session.user; return sessionUser; }
+    function setupShell(){ const drawer = document.getElementById('mobileDrawer'); const backdrop = document.getElementById('drawerBackdrop'); const open = () => { drawer.classList.add('open'); backdrop.classList.add('open'); }; const close = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); }; document.getElementById('menuButton').addEventListener('click', open); document.getElementById('closeMenuButton').addEventListener('click', close); backdrop.addEventListener('click', close); document.getElementById('backButton').addEventListener('click', () => { if(history.length > 1) history.back(); else location.href = 'profile.html'; }); document.getElementById('logoutButton').addEventListener('click', async () => { await getClient().auth.signOut(); location.href = '../login.html'; }); }
+    async function verifyAdmin(){ const result = await getClient().from('USAF_profiles').select('*').eq('id', sessionUser.id).maybeSingle(); if(result.error) throw result.error; currentProfile = result.data || {}; if(currentProfile.role !== 'admin' || currentProfile.is_active === false){ content.innerHTML = '<div class="notice"><strong>Admin access required.</strong><br>This mobile user management page is only available to active Admin users.</div>'; return false; } return true; }
+    async function loadUsers(){ const result = await getClient().from('USAF_profiles').select('*').order('display_name', { ascending:true }); if(result.error) throw result.error; users = result.data || []; }
+    function renderUsers(){ content.innerHTML = '<div class="toolbar"><strong>Users</strong><button class="btn secondary" id="reloadUsersBtn">Refresh</button></div><label>Search Users<input id="userSearch" placeholder="Search name, email, rank, unit"></label><div id="userList" class="card-list"></div><div id="userEditor"></div>'; document.getElementById('reloadUsersBtn').addEventListener('click', async () => { await loadUsers(); drawList(); }); document.getElementById('userSearch').addEventListener('input', drawList); drawList(); }
+    function drawList(){ const term = document.getElementById('userSearch').value.trim().toLowerCase(); const filtered = users.filter(u => !term || [u.display_name,u.email,u.rank,u.unit,u.duty_station,u.role].some(v => String(v || '').toLowerCase().includes(term))); document.getElementById('userList').innerHTML = filtered.length ? filtered.map(u => '<article class="data-card"><strong>' + esc(u.display_name || u.email || 'Unnamed user') + '</strong><span>' + esc(u.email || 'No email') + '</span><div class="data-row"><span>Role</span><b>' + esc(u.role || 'user') + '</b></div><div class="data-row"><span>Active</span><b>' + (u.is_active !== false ? 'Yes' : 'No') + '</b></div><button class="btn secondary" data-user-id="' + esc(u.id) + '">Edit User</button></article>').join('') : '<div class="empty-card">No users matched the search.</div>'; document.querySelectorAll('[data-user-id]').forEach(btn => btn.addEventListener('click', () => renderEditor(users.find(u => u.id === btn.dataset.userId)))); }
+    function renderEditor(user){ document.getElementById('userEditor').innerHTML = '<form class="form-card" id="adminUserForm"><strong>Edit User</strong><label>Display Name<input id="admin_display_name" required value="' + esc(user.display_name || '') + '"></label><label>Email<input id="admin_email" type="email" required value="' + esc(user.email || '') + '"></label><label>Rank<input id="admin_rank" value="' + esc(user.rank || '') + '"></label><label>Unit<input id="admin_unit" value="' + esc(user.unit || '') + '"></label><label>Duty Station<input id="admin_duty_station" value="' + esc(user.duty_station || '') + '"></label><label>Role<select id="admin_role"><option value="user">User</option><option value="admin">Admin</option></select></label><label>Active<select id="admin_is_active"><option value="true">Yes</option><option value="false">No</option></select></label><button class="btn full" type="submit">Save User</button><button class="btn secondary full" type="button" id="closeEditor">Close</button></form>'; document.getElementById('admin_role').value = user.role || 'user'; document.getElementById('admin_is_active').value = String(user.is_active !== false); document.getElementById('closeEditor').addEventListener('click', () => document.getElementById('userEditor').innerHTML = ''); document.getElementById('adminUserForm').addEventListener('submit', e => saveUser(e, user)); document.getElementById('userEditor').scrollIntoView({ behavior:'smooth', block:'start' }); }
+    async function saveUser(e, user){ e.preventDefault(); const payload = { display_name: admin_display_name.value.trim(), email: admin_email.value.trim(), rank: admin_rank.value.trim() || null, unit: admin_unit.value.trim() || null, duty_station: admin_duty_station.value.trim() || null, role: admin_role.value, is_active: admin_is_active.value === 'true' }; const result = await getClient().from('USAF_profiles').update(payload).eq('id', user.id); if(result.error) return showError('User save failed.', result.error); alert('User updated.'); await loadUsers(); renderUsers(); }
+    async function init(){ try { setupShell(); await requireAuth(); if(!sessionUser) return; const allowed = await verifyAdmin(); if(!allowed) return; await loadUsers(); renderUsers(); } catch(err){ showError('Mobile User Management failed to load.', err); } }
+    init();
+  })();
+  </script>
+</body>
+</html>
