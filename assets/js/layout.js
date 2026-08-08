@@ -72,14 +72,14 @@ async function renderLayout(activeTitle) {
   app.innerHTML = `
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo-mark">✦</div>
+        <div class="logo-mark image-logo"><img src="${settings.site_logo_path || prefix + 'assets/img/orders-travel-tracker-logo.png'}" alt="Orders & Travel Tracker logo"></div>
         <div>
-          <div class="brand-title">${settings.organization_name || 'USAF Travel Tracker'}</div>
-          <div class="brand-subtitle">Integrity · Service · Excellence</div>
+          <div class="brand-title">${settings.organization_name || 'Orders & Travel Tracker'}</div>
+          <div class="brand-subtitle">Orders / Receipts / Vouchers</div>
         </div>
       </div>
       <nav>${userLinksHtml}${adminLinksHtml}</nav>
-      <div class="sidebar-footer">USAF Per Diem Tracker</div>
+      <div class="sidebar-footer">Orders & Travel Tracker</div>
     </aside>
     <main class="main">
       <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${settings.dashboard_banner_path || prefix + 'assets/img/default-banner.svg'}')">
