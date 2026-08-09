@@ -1,4 +1,4 @@
-// Mobile Tours/Cycles Repair v57
+// Mobile Tour Save Field Lookup Fix v64
 const MobileApp = (() => {
   let client = null;
   let user = null;
@@ -65,10 +65,10 @@ const MobileApp = (() => {
 
   function home(){
     content.innerHTML = `<div class="action-grid">
-      <a class="action-card" href="tours.html"><div class="action-icon">✈️</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="receipts.html"><div class="action-icon">🧾</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="vouchers.html"><div class="action-icon">📦</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="profile.html"><div class="action-icon">👤</div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="tours.html"><div class="action-icon">T</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="receipts.html"><div class="action-icon">R</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="vouchers.html"><div class="action-icon">V</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="profile.html"><div class="action-icon">P</div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
     </div>`;
   }
 
@@ -113,19 +113,28 @@ const MobileApp = (() => {
 
   async function saveTour(e, existing){
     e.preventDefault();
-    const start = orders_start_date.value;
-    const end = orders_end_date.value;
+    const tourNameEl = document.getElementById('tour_name');
+    const locationEl = document.getElementById('location');
+    const ordersNumberEl = document.getElementById('orders_number');
+    const startEl = document.getElementById('orders_start_date');
+    const endEl = document.getElementById('orders_end_date');
+    const statusEl = document.getElementById('status');
+    const notesEl = document.getElementById('notes');
+    const start = startEl?.value || '';
+    const end = endEl?.value || '';
     if (start && end && end < start) return alert('Tour End Date cannot be before Tour Start Date.');
     const payload = {
       user_id:user.id,
-      tour_name:tour_name.value.trim(),
-      location:location.value.trim() || null,
-      orders_number:orders_number.value.trim() || null,
+      tour_name:(tourNameEl?.value || '').trim(),
+      location:(locationEl?.value || '').trim() || null,
+      orders_number:(ordersNumberEl?.value || '').trim() || null,
       orders_start_date:start,
       orders_end_date:end,
-      status:status.value,
-      notes:notes.value.trim() || null
+      status:statusEl?.value || 'active',
+      notes:(notesEl?.value || '').trim() || null
     };
+    if (!payload.tour_name) return alert('Tour Name is required.');
+    if (!payload.orders_start_date || !payload.orders_end_date) return alert('Start Date and End Date are required.');
     const result = existing
       ? await supa().from('USAF_tours').update(payload).eq('id', existing.id).eq('user_id', user.id).select().single()
       : await supa().from('USAF_tours').insert(payload).select().single();
