@@ -24,3 +24,10 @@
 .helpdesk-tabs .tab-badge{display:inline-flex;min-width:18px;height:18px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;align-items:center;justify-content:center;margin-left:6px;padding:0 5px;}
 
 .helpdesk-fab{display:none!important;}
+
+.helpdesk-head h2{font-size:22px;line-height:1.2;margin:0;}
+.helpdesk-head p{margin-top:4px;}
+.helpdesk-close{font-size:26px;line-height:1;font-weight:900;color:#0f172a;background:#e5e7eb;border:0;border-radius:12px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
+.helpdesk-close:hover{background:#cbd5e1;}
+.helpdesk-ticket{appearance:none;text-align:left;width:100%;}
+.helpdesk-ticket strong{letter-spacing:.01em;}
