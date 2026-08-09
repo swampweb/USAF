@@ -1,9 +1,10 @@
-// Mobile split loader v77
+// Mobile split loader v79
 // Keeps mobile page logic split across dedicated files.
-// Fixes View as User helper path from mobile/assets/js/ to root assets/js/.
+// Loads View as User helper using a root-relative path so path depth cannot break it.
 (() => {
+  const rootPrefix = location.pathname.includes('/USAF/') ? '/USAF/' : '/';
   const scripts = [
-    '../../assets/js/effective-user.js',
+    rootPrefix + 'assets/js/effective-user.js?v=79',
     'mobile-shell.js',
     'mobile-dashboard.js',
     'mobile-cycles.js',
@@ -16,10 +17,14 @@
   const current = document.currentScript;
   const baseUrl = current && current.src ? current.src.substring(0, current.src.lastIndexOf('/') + 1) : './';
 
+  function resolveScript(file) {
+    return file.startsWith('/') || file.startsWith('http') ? file : baseUrl + file;
+  }
+
   function loadScript(file) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = baseUrl + file;
+      script.src = resolveScript(file);
       script.defer = true;
       script.onload = resolve;
       script.onerror = () => reject(new Error('Failed to load ' + file));
