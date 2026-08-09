@@ -2,6 +2,25 @@ let selectedTour = null;
 let allTours = [];
 let currentCycles = [];
 
+async function getToursUser() {
+  if (window.USAFEffectiveUser && typeof window.USAFEffectiveUser.getEffectiveUser === 'function') {
+    const effectiveUser = await window.USAFEffectiveUser.getEffectiveUser();
+    if (effectiveUser && effectiveUser.id) return effectiveUser;
+  }
+  return await getCurrentUser();
+}
+
+function toursReadOnlyView() {
+  return !!(window.USAFEffectiveUser && typeof window.USAFEffectiveUser.isViewAsUser === 'function' && window.USAFEffectiveUser.isViewAsUser());
+}
+
+function blockReadOnlyView() {
+  if (!toursReadOnlyView()) return false;
+  alert('Admin View Mode is read-only. Return to Admin View before making changes.');
+  return true;
+}
+
+
 function activeStatus(status) {
   return status === 'active' || status === 'planned';
 }
@@ -15,14 +34,14 @@ function filteredTours() {
 
 async function initTours() {
   await renderLayout('Tours');
-  if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
   bindEvents();
   await loadTours();
 }
 
 function bindEvents() {
   tourFilter.addEventListener('change', renderTourCards);
-  newTourBtn.addEventListener('click', () => openTourModal());
+  newTourBtn.addEventListener('click', () => { if (!blockReadOnlyView()) openTourModal(); });
+  if (toursReadOnlyView()) newTourBtn.disabled = true;
   closeTourModal.addEventListener('click', closeTourEditor);
   cancelTourBtn.addEventListener('click', closeTourEditor);
   tourForm.addEventListener('submit', saveTour);
@@ -32,10 +51,16 @@ function bindEvents() {
 }
 
 async function loadTours() {
-  const effectiveUser = window.USAFEffectiveUser ? await window.USAFEffectiveUser.getEffectiveUser() : await getCurrentUser();
-  let query = window.usafSupabase.from('USAF_tour_summary').select('*').order('orders_start_date', { ascending: false });
-  if (window.USAFEffectiveUser?.isViewAsActive() && effectiveUser?.id) query = query.eq('user_id', effectiveUser.id);
-  const { data, error } = await query;
+  const toursUser = await getToursUser();
+  if (!toursUser || !toursUser.id) {
+    tourCards.innerHTML = '<div class="empty-state">Unable to identify the active user.</div>';
+    return;
+  }
+  const { data, error } = await window.usafSupabase
+    .from('USAF_tour_summary')
+    .select('*')
+    .eq('user_id', toursUser.id)
+    .order('orders_start_date', { ascending: false });
   if (error) {
     tourCards.innerHTML = `<div class="empty-state">${error.message}</div>`;
     return;
@@ -45,6 +70,7 @@ async function loadTours() {
   if (selectedTour) {
     const refreshed = allTours.find(t => t.id === selectedTour.id);
     if (refreshed) await selectTour(refreshed.id);
+    else { selectedTour = null; currentCycles = []; tourDetails.innerHTML = '<div class="empty-state"><h2>Select a Tour</h2><p>Pick an existing Tour from the list, or create a new one. Tour details and cycles will open here.</p></div>'; }
   }
 }
 
@@ -61,7 +87,8 @@ function renderTourCards() {
 }
 
 async function selectTour(tourId) {
-  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).single();
+  const toursUser = await getToursUser();
+  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).eq('user_id', toursUser.id).single();
   if (error) return alert(error.message);
   selectedTour = data;
   renderTourCards();
@@ -81,7 +108,7 @@ function renderTourDetail() {
   tourDetailWrap.innerHTML = `<div class="tour-detail">
     <div class="tour-detail-hero">
       <div><h2>${t.tour_name}</h2><p>${t.location || 'No location'} | ${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.orders_number || 'No orders number'}</p></div>
-      <div class="hero-actions"><button class="btn secondary" id="editTourBtn">Edit Tour</button><button class="btn secondary" id="toggleTourBtn">${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button><button class="btn danger" id="deleteTourBtn">Delete Tour</button></div>
+      <div class="hero-actions"><button class="btn secondary" id="editTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>Edit Tour</button><button class="btn secondary" id="toggleTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button><button class="btn danger" id="deleteTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>Delete Tour</button></div>
     </div>
     <div class="tour-metrics">
       <div class="metric-mini"><span>Cycles</span><strong>${t.cycle_count || 0}</strong></div>
@@ -130,6 +157,7 @@ function openTourModal(tour = null) {
 function closeTourEditor() { tourModal.classList.remove('open'); }
 async function saveTour(e) {
   e.preventDefault();
+  if (blockReadOnlyView()) return;
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_name:tour_name.value.trim(), location:location_name.value.trim() || null, orders_number:orders_number.value.trim() || null, orders_start_date:orders_start_date.value, orders_end_date:orders_end_date.value, status:status.value, notes:notes.value.trim() || null };
   const id = tour_id_edit.value;
@@ -140,7 +168,7 @@ async function saveTour(e) {
   await selectTour(result.data.id);
 }
 async function toggleTourActive() {
-  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
+  if (blockReadOnlyView()) return;
   if (!selectedTour) return;
   const newStatus = activeStatus(selectedTour.status) ? 'cancelled' : 'active';
   const { error } = await window.usafSupabase.from('USAF_tours').update({ status:newStatus }).eq('id', selectedTour.id);
@@ -149,7 +177,7 @@ async function toggleTourActive() {
 }
 
 async function deleteTour() {
-  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
+  if (blockReadOnlyView()) return;
   if (!selectedTour) return;
   if (!confirm(`Delete Tour "${selectedTour.tour_name || 'selected tour'}"? This cannot be undone.`)) return;
   const { error } = await window.usafSupabase.from('USAF_tours').delete().eq('id', selectedTour.id).eq('user_id', selectedTour.user_id || (await getCurrentUser()).id);
@@ -183,6 +211,7 @@ function openCycleModal(cycle = null) {
 function closeCycleEditor() { cycleModal.classList.remove('open'); }
 async function saveCycle(e) {
   e.preventDefault();
+  if (blockReadOnlyView()) return;
   const user = await getCurrentUser();
   if (cycle_start_date.value < selectedTour.orders_start_date || cycle_start_date.value > selectedTour.orders_end_date || cycle_end_date.value < selectedTour.orders_start_date || cycle_end_date.value > selectedTour.orders_end_date) return alert('Cycle dates must be within the selected Tour date range.');
   if (cycle_end_date.value < cycle_start_date.value) return alert('Cycle End Date cannot be before Cycle Start Date.');
@@ -194,7 +223,7 @@ async function saveCycle(e) {
   await selectTour(selectedTour.id);
 }
 async function toggleCycleActive(id) {
-  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
+  if (blockReadOnlyView()) return;
   const cycle = currentCycles.find(c => c.id === id);
   if (!cycle) return;
   const newStatus = cycle.status === 'cancelled' ? 'active' : 'cancelled';
