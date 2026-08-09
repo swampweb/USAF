@@ -27,7 +27,8 @@ const USER_LINKS = [
   { label: "Per Diem Receipts", href: "receipts.html", icon: "receipt" },
   { label: "Other Receipts", href: "other-receipts.html", icon: "folder" },
   { label: "Voucher / Downloads", href: "voucher-downloads.html", icon: "download" },
-  { label: "Reports", href: "reports.html", icon: "bar-chart" }
+  { label: "Reports", href: "reports.html", icon: "bar-chart" },
+  { label: "Help Desk", href: "#", icon: "help-circle", badge: "user-helpdesk" }
 ];
 
 function isAdminPath() {
@@ -120,7 +121,11 @@ async function renderLayout(activeTitle) {
 
   const app = document.querySelector('#app');
   const content = app.innerHTML;
-  const userLinksHtml = USER_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span></a>`).join('');
+  const userLinksHtml = USER_LINKS.map(l => {
+    const badge = l.badge === 'user-helpdesk' ? '<span class="nav-badge" data-helpdesk-user-badge hidden>0</span>' : '';
+    const attrs = l.badge === 'user-helpdesk' ? 'href="#" data-helpdesk-open' : `href="${normalizeHref(l.href)}"`;
+    return `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" ${attrs}>${iconSvg(l.icon)}<span>${l.label}</span>${badge}</a>`;
+  }).join('');
   const adminLinksHtml = profile?.role === 'admin' ? `<div class="nav-section-title">Admin</div>${ADMIN_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span>${l.badge === 'helpdesk' ? '<span class="nav-badge" data-helpdesk-admin-badge hidden>0</span>' : ''}</a>`).join('')}` : '';
 
   app.innerHTML = `

@@ -1,7 +1,6 @@
-// Mobile split loader v84
+// Mobile split loader v85
 // Keeps mobile page logic split across dedicated files.
-// IMPORTANT: Do not merge feature logic into this loader.
-// New mobile features should be added as separate mobile-*.js files and linked below.
+// New mobile features must be separate mobile-*.js files and listed here.
 (() => {
   const rootPrefix = location.pathname.includes('/USAF/') ? '/USAF/' : '/';
   const scripts = [
@@ -13,7 +12,7 @@
     'mobile-receipts.js',
     'mobile-vouchers.js',
     'mobile-profile.js',
-    'mobile-helpdesk.js'
+    'mobile-helpdesk.js?v=85'
   ];
   const current = document.currentScript;
   const baseUrl = current && current.src ? current.src.substring(0, current.src.lastIndexOf('/') + 1) : './';
