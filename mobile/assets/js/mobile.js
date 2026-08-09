@@ -113,24 +113,71 @@ const MobileApp = (() => {
 
   async function saveTour(e, existing){
     e.preventDefault();
-    const start = orders_start_date.value;
-    const end = orders_end_date.value;
+
+    const field = id => document.getElementById(id);
+    const tourName = field('tour_name');
+    const locationField = field('location');
+    const ordersNumber = field('orders_number');
+    const startField = field('orders_start_date');
+    const endField = field('orders_end_date');
+    const statusField = field('status');
+    const notesField = field('notes');
+    const form = field('tourForm');
+    const saveButton = form ? form.querySelector('button[type="submit"]') : null;
+
+    if (!tourName || !startField || !endField || !statusField) {
+      alert('Tour form error: required fields were not found. Refresh the mobile page and try again.');
+      console.error('Tour form missing required field(s).', { tourName, startField, endField, statusField });
+      return;
+    }
+
+    const start = startField.value;
+    const end = endField.value;
     if (start && end && end < start) return alert('Tour End Date cannot be before Tour Start Date.');
+
     const payload = {
-      user_id:user.id,
-      tour_name:tour_name.value.trim(),
-      location:location.value.trim() || null,
-      orders_number:orders_number.value.trim() || null,
-      orders_start_date:start,
-      orders_end_date:end,
-      status:status.value,
-      notes:notes.value.trim() || null
+      user_id: user.id,
+      tour_name: tourName.value.trim(),
+      location: locationField?.value.trim() || null,
+      orders_number: ordersNumber?.value.trim() || null,
+      orders_start_date: start,
+      orders_end_date: end,
+      status: statusField.value,
+      notes: notesField?.value.trim() || null
     };
-    const result = existing
-      ? await supa().from('USAF_tours').update(payload).eq('id', existing.id).eq('user_id', user.id).select().single()
-      : await supa().from('USAF_tours').insert(payload).select().single();
-    if (result.error) return alert('Tour save failed: ' + result.error.message);
-    await renderTours();
+
+    if (!payload.tour_name) return alert('Tour Name is required.');
+    if (!payload.orders_start_date || !payload.orders_end_date) return alert('Tour Start Date and End Date are required.');
+
+    try {
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving Tour...';
+      }
+
+      const query = existing
+        ? supa().from('USAF_tours').update(payload).eq('id', existing.id).eq('user_id', user.id).select('id').single()
+        : supa().from('USAF_tours').insert(payload).select('id').single();
+
+      const result = await query;
+      if (result.error) {
+        console.error('Tour save failed', result.error, payload);
+        alert('Tour save failed: ' + result.error.message);
+        return;
+      }
+
+      selectedTour = null;
+      await renderTours();
+      alert('Tour saved.');
+    } catch (err) {
+      console.error('Tour save crashed', err, payload);
+      alert('Tour save crashed: ' + (err?.message || err));
+    } finally {
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save Tour';
+      }
+    }
   }
 
   async function deleteTour(id){
