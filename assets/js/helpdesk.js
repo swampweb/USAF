@@ -1,4 +1,5 @@
 (function(){
+  let currentMineStatusFilter='active';
   const TABLE = 'USAF_helpdesk_tickets';
   const MSGS = 'USAF_helpdesk_messages';
   const BUCKET = 'usaf-helpdesk';
@@ -163,7 +164,7 @@
       const {data,error}=await sb().from(TABLE).select('*').eq('created_by',u.id).order('updated_at',{ascending:false});
       if(error){ panel.innerHTML=`<div class="helpdesk-empty">${esc(error.message)}</div>`; return; }
       const rows=await statusFixFromMessages(data||[]);
-      const statusFilter=(panel.querySelector('#helpdeskStatusFilter')?.value)||'active'; const shown=filterRowsByStatus(rows,statusFilter); panel.innerHTML=filterSelectHtml(statusFilter)+(shown.length ? `<div class="helpdesk-list">${shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(t.type)} - ${esc(statusLabel(t.status))}</strong><div class="helpdesk-meta"><span>Status: ${esc(statusLabel(t.status))}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div><small>${esc((t.description||'').slice(0,110))}</small></button>`).join('')}</div>` : `<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); panel.querySelector('#helpdeskStatusFilter')?.addEventListener('change',renderMine);
+      const statusFilter=currentMineStatusFilter; const shown=filterRowsByStatus(rows,statusFilter); panel.innerHTML=filterSelectHtml(statusFilter)+(shown.length ? `<div class="helpdesk-list">${shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(t.type)} - ${esc(statusLabel(t.status))}</strong><div class="helpdesk-meta"><span>Status: ${esc(statusLabel(t.status))}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div><small>${esc((t.description||'').slice(0,110))}</small></button>`).join('')}</div>` : `<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); const statusSelect=panel.querySelector('#helpdeskStatusFilter'); if(statusSelect){ statusSelect.value=currentMineStatusFilter; statusSelect.onchange=()=>{ currentMineStatusFilter=statusSelect.value; renderMine(); }; }
       panel.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>ticketDetail(b.dataset.ticket));
     }
     el.querySelector('[data-tab="new"]').onclick=renderForm;
