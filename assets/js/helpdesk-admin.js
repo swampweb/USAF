@@ -109,7 +109,10 @@
     const {data,error}=await sb().from(TABLE).select('*').order('updated_at',{ascending:false});
     if(error){list.innerHTML=`<div class="helpdesk-empty">${esc(error.message)}</div>`; return;}
     const rows=await statusFixFromMessages(data||[]);
-    const statusFilter=currentStatusFilter; const shown=filterRowsByStatus(rows,statusFilter); list.innerHTML=filterSelectHtml(statusFilter)+(shown.length?shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(ticketNo(t.id))}</strong>${pill(t)}<div class="helpdesk-meta"><span>Status: ${esc(statusLabel(t.status))}</span><span>${esc(t.created_by_display_name||'User')}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span>${t.admin_unread?'<span class="nav-badge static">!</span>':''}</div><small>${esc((t.description||'').slice(0,120))}</small></button>`).join(''):`<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); list.querySelector('#helpdeskStatusFilter')?.addEventListener('change',load);
+    const statusFilter=currentStatusFilter; const shown=filterRowsByStatus(rows,statusFilter); list.innerHTML=filterSelectHtml(statusFilter)+(shown.length?shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(ticketNo(t.id))}</strong>${pill(t)}<div class="helpdesk-meta"><span>Status: ${esc(statusLabel(t.status))}</span><span>${esc(t.created_by_display_name||'User')}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span>${t.admin_unread?'<span class="nav-badge static">!</span>':''}</div><small>${esc((t.description||'').slice(0,120))}</small></button>`).join(''):`<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); list.querySelector('#helpdeskStatusFilter')?.addEventListener('change', (e)=>{
+      currentStatusFilter = e.target.value || 'active';
+      load();
+    });
     list.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>show(b.dataset.ticket));
     await adminBadge();
   }
