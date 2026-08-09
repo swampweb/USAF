@@ -23,30 +23,26 @@
   function statusClass(v){ return 'status-' + normStatus(v).replace(/[^a-z0-9_-]/g,'-'); }
   function statusLabel(v){ const s=normStatus(v); return s.split('_').map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' '); }
 
-  function closureStatusFromMessages(msgs){
-    let status = null;
-    (msgs||[]).forEach(m=>{
-      const role = String(m.sender_role||'').toLowerCase();
-      const text = String(m.message||'').toLowerCase().trim();
-      if(role === 'admin' && (text === 'closed by admin.' || text === 'closed by admin' || text.includes('closed by admin'))) status = 'closed';
-      if(role === 'admin' && (text === 'marked resolved by admin.' || text === 'marked resolved by admin' || text.includes('marked resolved by admin'))) status = 'resolved';
-    });
-    return status;
-  }
-  async function applyClosureStatusRows(rows){
-    const list = rows || [];
-    const ids = list.map(t=>t.id).filter(Boolean);
-    if(!ids.length) return list;
+  function statusBucket(v){ return isClosedStatus(v) ? 'closed' : 'active'; }
+  async function statusFixFromMessages(rows){
+    const list = Array.isArray(rows) ? rows : [];
+    if(!list.length) return list;
     try{
-      const {data:msgs,error}=await sb().from(MSGS).select('ticket_id,sender_role,message,created_at').in('ticket_id',ids).order('created_at',{ascending:true});
-      if(error || !msgs) return list;
-      const byId = {};
-      msgs.forEach(m=>{ (byId[m.ticket_id] = byId[m.ticket_id] || []).push(m); });
-      list.forEach(t=>{
-        const forced = closureStatusFromMessages(byId[t.id]||[]);
-        if(forced && !isClosedStatus(t.status)){
-          t.status = forced;
-          try{ sb().from(TABLE).update({status:forced,resolved_at:new Date().toISOString(),admin_unread:false,user_unread:true}).eq('id',t.id); }catch(_e){}
+      const ids = list.map(t => t && t.id).filter(Boolean);
+      if(!ids.length) return list;
+      const {data:msgs,error} = await sb().from(MSGS).select('ticket_id,sender_role,message,created_at').in('ticket_id', ids).order('created_at',{ascending:true});
+      if(error || !Array.isArray(msgs)) return list;
+      const forced = {};
+      msgs.forEach(m => {
+        const role = String(m.sender_role || '').toLowerCase();
+        const text = String(m.message || '').toLowerCase();
+        if(role === 'admin' && text.includes('closed by admin')) forced[m.ticket_id] = 'closed';
+        if(role === 'admin' && text.includes('marked resolved by admin')) forced[m.ticket_id] = 'resolved';
+      });
+      list.forEach(t => {
+        if(t && forced[t.id] && !isClosedStatus(t.status)){
+          t.status = forced[t.id];
+          try{ sb().from(TABLE).update({status:t.status,resolved_at:new Date().toISOString(),admin_unread:false}).eq('id',t.id); }catch(_e){}
         }
       });
     }catch(_e){}
@@ -111,8 +107,8 @@
     if(!selected) detail.innerHTML='<div class="helpdesk-empty">Select a ticket.</div>';
     const {data,error}=await sb().from(TABLE).select('*').order('updated_at',{ascending:false});
     if(error){list.innerHTML=`<div class="helpdesk-empty">${esc(error.message)}</div>`; return;}
-    const rows=await applyClosureStatusRows(data||[]);
-    const statusFilter=(document.getElementById('helpdeskStatusFilter')?.value)||'active'; const shown=filterRowsByStatus(rows,statusFilter); list.innerHTML=filterSelectHtml(statusFilter)+(shown.length?shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(ticketNo(t.id))}</strong>${pill(t)}<div class="helpdesk-meta"><span>${esc(t.created_by_display_name||'User')}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span>${t.admin_unread?'<span class="nav-badge static">!</span>':''}</div><small>${esc((t.description||'').slice(0,120))}</small></button>`).join(''):`<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); list.querySelector('#helpdeskStatusFilter')?.addEventListener('change',load);
+    const rows=await statusFixFromMessages(data||[]);
+    const statusFilter=(document.getElementById('helpdeskStatusFilter')?.value)||'active'; const shown=filterRowsByStatus(rows,statusFilter); list.innerHTML=filterSelectHtml(statusFilter)+(shown.length?shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(ticketNo(t.id))}</strong>${pill(t)}<div class="helpdesk-meta"><span>Status: ${esc(statusLabel(t.status))}</span><span>${esc(t.created_by_display_name||'User')}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span>${t.admin_unread?'<span class="nav-badge static">!</span>':''}</div><small>${esc((t.description||'').slice(0,120))}</small></button>`).join(''):`<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); list.querySelector('#helpdeskStatusFilter')?.addEventListener('change',load);
     list.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>show(b.dataset.ticket));
     await adminBadge();
   }
@@ -125,7 +121,7 @@
     await sb().from(TABLE).update({admin_unread:false}).eq('id',id);
     const {data:msgs,error:msgError}=await sb().from(MSGS).select('*').eq('ticket_id',id).order('created_at',{ascending:true});
     if(msgError){detail.innerHTML=`<div class="helpdesk-empty">${esc(msgError.message)}</div>`;return;}
-    const forcedStatus=closureStatusFromMessages(msgs); if(forcedStatus){ t.status=forcedStatus; try{ await sb().from(TABLE).update({status:forcedStatus,resolved_at:new Date().toISOString(),admin_unread:false,user_unread:true}).eq('id',id); }catch(_e){} }
+    const forced=(msgs||[]).some(m=>String(m.sender_role||'').toLowerCase()==='admin' && String(m.message||'').toLowerCase().includes('closed by admin'))?'closed':((msgs||[]).some(m=>String(m.sender_role||'').toLowerCase()==='admin' && String(m.message||'').toLowerCase().includes('marked resolved by admin'))?'resolved':null); if(forced && !isClosedStatus(t.status)){ t.status=forced; try{ await sb().from(TABLE).update({status:forced,resolved_at:new Date().toISOString(),admin_unread:false}).eq('id',id); }catch(_e){} }
     const isClosed = isClosedStatus(t.status);
     detail.innerHTML=`<div class="helpdesk-detail-head"><h3>${esc(ticketNo(t.id))}</h3>${pill(t)}<div class="helpdesk-meta"><span>User: ${esc(t.created_by_display_name||'User')}</span><span>Tour: ${esc(t.related_tour_label||'None')}</span><span>Updated: ${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div>${t.image_url?`<a class="helpdesk-image-link" href="${esc(t.image_url)}" target="_blank">View uploaded image</a>`:''}</div><div>${(msgs||[]).map(m=>`<div class="helpdesk-message ${m.sender_role==='admin'?'admin':'user'}"><b>${esc(m.sender_role)}</b><p>${esc(m.message)}</p>${m.image_url?`<a class="helpdesk-image-link" href="${esc(m.image_url)}" target="_blank">View image</a>`:''}<div class="helpdesk-muted">${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}</div>${isClosed?'<div class="helpdesk-empty">This ticket is closed/resolved.</div>':`<form class="helpdesk-form" id="adminReplyForm"><label>Admin reply<textarea name="message" required></textarea></label><div class="helpdesk-actions"><button class="helpdesk-btn secondary" type="button" id="closeTicketBtn">Close Ticket</button><button class="helpdesk-btn" type="submit">Reply</button><button class="helpdesk-btn success" type="button" id="resolveBtn">Mark Resolved</button></div></form>`}`;
     detail.querySelector('#adminReplyForm')?.addEventListener('submit',async(e)=>{e.preventDefault(); const p=await me(); const msg=new FormData(e.target).get('message'); const {error}=await sb().from(MSGS).insert({ticket_id:id,sender_id:p.id,sender_role:'admin',message:msg}); if(error) return alert(error.message); await sb().from(TABLE).update({status:'admin_replied',admin_unread:false,user_unread:true}).eq('id',id); await show(id); await load();});
