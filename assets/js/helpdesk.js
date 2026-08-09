@@ -21,6 +21,36 @@
   function isActiveStatus(v){ return !isClosedStatus(v); }
   function statusClass(v){ return 'status-' + normStatus(v).replace(/[^a-z0-9_-]/g,'-'); }
   function statusLabel(v){ const s=normStatus(v); return s.split('_').map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' '); }
+
+  function closureStatusFromMessages(msgs){
+    let status = null;
+    (msgs||[]).forEach(m=>{
+      const role = String(m.sender_role||'').toLowerCase();
+      const text = String(m.message||'').toLowerCase().trim();
+      if(role === 'admin' && (text === 'closed by admin.' || text === 'closed by admin' || text.includes('closed by admin'))) status = 'closed';
+      if(role === 'admin' && (text === 'marked resolved by admin.' || text === 'marked resolved by admin' || text.includes('marked resolved by admin'))) status = 'resolved';
+    });
+    return status;
+  }
+  async function applyClosureStatusRows(rows){
+    const list = rows || [];
+    const ids = list.map(t=>t.id).filter(Boolean);
+    if(!ids.length) return list;
+    try{
+      const {data:msgs,error}=await sb().from(MSGS).select('ticket_id,sender_role,message,created_at').in('ticket_id',ids).order('created_at',{ascending:true});
+      if(error || !msgs) return list;
+      const byId = {};
+      msgs.forEach(m=>{ (byId[m.ticket_id] = byId[m.ticket_id] || []).push(m); });
+      list.forEach(t=>{
+        const forced = closureStatusFromMessages(byId[t.id]||[]);
+        if(forced && !isClosedStatus(t.status)){
+          t.status = forced;
+          try{ sb().from(TABLE).update({status:forced,resolved_at:new Date().toISOString(),admin_unread:false,user_unread:true}).eq('id',t.id); }catch(_e){}
+        }
+      });
+    }catch(_e){}
+    return list;
+  }
   function filterRowsByStatus(rows, filter){
     const f = filter || 'active';
     if(f === 'all') return rows;
@@ -136,7 +166,7 @@
       panel.innerHTML='<div class="helpdesk-empty">Loading tickets...</div>';
       const {data,error}=await sb().from(TABLE).select('*').eq('created_by',u.id).order('updated_at',{ascending:false});
       if(error){ panel.innerHTML=`<div class="helpdesk-empty">${esc(error.message)}</div>`; return; }
-      const rows=data||[];
+      const rows=await applyClosureStatusRows(data||[]);
       const statusFilter=(panel.querySelector('#helpdeskStatusFilter')?.value)||'active'; const shown=filterRowsByStatus(rows,statusFilter); panel.innerHTML=filterSelectHtml(statusFilter)+(shown.length ? `<div class="helpdesk-list">${shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(t.type)} - ${esc(statusLabel(t.status))}</strong><div class="helpdesk-meta"><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div><small>${esc((t.description||'').slice(0,110))}</small></button>`).join('')}</div>` : `<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); panel.querySelector('#helpdeskStatusFilter')?.addEventListener('change',renderMine);
       panel.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>ticketDetail(b.dataset.ticket));
     }
@@ -150,9 +180,10 @@
     if(ticketError) return alert(ticketError.message);
     const {data:msgs,error:msgError}=await sb().from(MSGS).select('*').eq('ticket_id',id).order('created_at',{ascending:true});
     if(msgError) return alert(msgError.message);
+    const forcedStatus=closureStatusFromMessages(msgs); if(forcedStatus){ t.status=forcedStatus; try{ await sb().from(TABLE).update({status:forcedStatus,resolved_at:new Date().toISOString(),user_unread:false}).eq('id',id); }catch(_e){} }
     await sb().from(TABLE).update({user_unread:false}).eq('id',id);
     await updateUserBadge();
-    const el=modal(`<div class="helpdesk-modal"><div class="helpdesk-head"><div><h2>${esc(t.type)} Ticket</h2><p>${esc(t.related_tour_label||'No related tour')}</p></div><button class="helpdesk-close" type="button">×</button></div><div class="helpdesk-body"><div class="helpdesk-status-line"><span class="helpdesk-pill ${t.type==='issue'?'issue':''}">${esc(t.type)}</span><span class="helpdesk-pill ${t.status==='resolved'?'resolved':''}">${esc(statusLabel(t.status))}</span></div>${(msgs||[]).map(m=>`<div class="helpdesk-message ${m.sender_role==='admin'?'admin':'user'}"><b>${esc(m.sender_role)}</b><p>${esc(m.message)}</p>${m.image_url?`<a class="helpdesk-image-link" href="${esc(m.image_url)}" target="_blank">View image</a>`:''}<div class="helpdesk-muted">${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}${t.status==='resolved'?'<div class="helpdesk-empty">Resolved ticket.</div>':`<form class="helpdesk-form" id="userReplyForm"><label>Reply<textarea name="message" required></textarea></label><div class="helpdesk-actions"><button class="helpdesk-btn" type="submit">Reply</button></div></form>`}</div></div>`);
+    const el=modal(`<div class="helpdesk-modal"><div class="helpdesk-head"><div><h2>${esc(t.type)} Ticket</h2><p>${esc(t.related_tour_label||'No related tour')}</p></div><button class="helpdesk-close" type="button">×</button></div><div class="helpdesk-body"><div class="helpdesk-status-line"><span class="helpdesk-pill ${t.type==='issue'?'issue':''}">${esc(t.type)}</span><span class="helpdesk-pill ${t.status==='resolved'?'resolved':''}">${esc(statusLabel(t.status))}</span></div>${(msgs||[]).map(m=>`<div class="helpdesk-message ${m.sender_role==='admin'?'admin':'user'}"><b>${esc(m.sender_role)}</b><p>${esc(m.message)}</p>${m.image_url?`<a class="helpdesk-image-link" href="${esc(m.image_url)}" target="_blank">View image</a>`:''}<div class="helpdesk-muted">${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}${isClosedStatus(t.status)?'<div class="helpdesk-empty">This ticket is closed/resolved.</div>':`<form class="helpdesk-form" id="userReplyForm"><label>Reply<textarea name="message" required></textarea></label><div class="helpdesk-actions"><button class="helpdesk-btn" type="submit">Reply</button></div></form>`}</div></div>`);
     el.querySelector('#userReplyForm')?.addEventListener('submit',async(e)=>{e.preventDefault(); const msg=new FormData(e.target).get('message'); const {error}=await sb().from(MSGS).insert({ticket_id:id,sender_id:u.id,sender_role:'user',message:msg}); if(error) return alert(error.message); await sb().from(TABLE).update({status:'user_replied',admin_unread:true,user_unread:false}).eq('id',id); ticketDetail(id);});
   }
   function bind(){
