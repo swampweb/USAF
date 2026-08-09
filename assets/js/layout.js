@@ -16,6 +16,7 @@ const ADMIN_LINKS = [
   { label: "Users", href: "admin/users.html", icon: "users" },
   { label: "Receipt Types", href: "admin/receipt-types.html", icon: "tags" },
   { label: "Branding", href: "admin/branding.html", icon: "palette" },
+  { label: "Help Desk", href: "admin/help-desk.html", icon: "help-circle", badge: "helpdesk" },
   { label: "Settings", href: "admin/settings.html", icon: "settings" },
   { label: "Audit Log", href: "admin/audit-log.html", icon: "shield" }
 ];
@@ -71,6 +72,7 @@ function iconSvg(name) {
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
     tags: '<path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r=".5"/>',
     palette: '<path d="M12 22a10 10 0 1 1 10-10 3 3 0 0 1-3 3h-2a2 2 0 0 0-2 2v1a4 4 0 0 1-3 4z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>',
+    'help-circle': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4"/><path d="M12 17h.01"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1v.17a2 2 0 1 1-4 0V21a1.65 1.65 0 0 0-.4-1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.4H2.83a2 2 0 1 1 0-4H3a1.65 1.65 0 0 0 1-.4 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1V2.83a2 2 0 1 1 4 0V3a1.65 1.65 0 0 0 .4 1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.36.69.6 1 .28.24.62.38 1 .4h.17a2 2 0 1 1 0 4H21c-.38.02-.72.16-1 .4-.24.31-.46.64-.6 1z"/>',
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
   };
@@ -80,6 +82,30 @@ function iconSvg(name) {
 async function loadSettings() {
   const { data } = await window.usafSupabase.from("USAF_settings").select("*").eq("id", true).maybeSingle();
   return data || {};
+}
+
+function ensureHelpDeskAssets(prefix) {
+  try {
+    const cssHref = prefix + 'assets/css/helpdesk.css';
+    if (!document.querySelector(`link[href="${cssHref}"]`)) {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = cssHref;
+      document.head.appendChild(l);
+    }
+    const jsSrc = prefix + 'assets/js/helpdesk.js';
+    if (!document.querySelector(`script[src="${jsSrc}"]`)) {
+      const s = document.createElement('script');
+      s.src = jsSrc;
+      s.defer = true;
+      s.onload = () => window.USAFHelpDesk?.init?.();
+      document.body.appendChild(s);
+    } else {
+      setTimeout(() => window.USAFHelpDesk?.init?.(), 0);
+    }
+  } catch (err) {
+    console.warn('Help Desk assets skipped:', err);
+  }
 }
 
 async function renderLayout(activeTitle) {
@@ -95,7 +121,7 @@ async function renderLayout(activeTitle) {
   const app = document.querySelector('#app');
   const content = app.innerHTML;
   const userLinksHtml = USER_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span></a>`).join('');
-  const adminLinksHtml = profile?.role === 'admin' ? `<div class="nav-section-title">Admin</div>${ADMIN_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span></a>`).join('')}` : '';
+  const adminLinksHtml = profile?.role === 'admin' ? `<div class="nav-section-title">Admin</div>${ADMIN_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span>${l.badge === 'helpdesk' ? '<span class="nav-badge" data-helpdesk-admin-badge hidden>0</span>' : ''}</a>`).join('')}` : '';
 
   app.innerHTML = `
     <aside class="sidebar">
@@ -117,6 +143,7 @@ async function renderLayout(activeTitle) {
       <section class="page-content">${content}</section>
     </main>`;
 
+  ensureHelpDeskAssets(prefix);
   showProtectedPage();
 }
 
@@ -133,7 +160,3 @@ function fmtDate(dateValue) {
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
-
-
-// v74: refresh View as User banner/read-only state after layout renders.
-setTimeout(() => { if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi(); }, 0);
