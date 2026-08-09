@@ -20,7 +20,8 @@ function filteredUsers() {
   if (f === 'active') return usersCache.filter(u => u.is_active !== false);
   if (f === 'inactive') return usersCache.filter(u => u.is_active === false);
   if (f === 'admin') return usersCache.filter(u => u.role === 'admin');
-  if (f === 'user') return usersCache.filter(u => u.role !== 'admin');
+  if (f === 'report') return usersCache.filter(u => u.role === 'report');
+  if (f === 'user') return usersCache.filter(u => (u.role || 'user') === 'user');
   return usersCache;
 }
 
@@ -40,7 +41,7 @@ function selectUser(id) {
     <label>Rank<input id="admin_rank" value="${selectedUser.rank || ''}"></label>
     <label>Unit<input id="admin_unit" value="${selectedUser.unit || ''}"></label>
     <label class="span-2">Duty Station<input id="admin_duty_station" value="${selectedUser.duty_station || ''}"></label>
-    <label>Role<select id="admin_role"><option value="user">User</option><option value="admin">Admin</option></select></label>
+    <label>Role<select id="admin_role"><option value="user">User</option><option value="report">Report</option><option value="admin">Admin</option></select></label>
     <label>Active<select id="admin_is_active"><option value="true">Yes</option><option value="false">No</option></select></label>
     <div class="actions span-2"><button class="btn">Save User</button></div>
   </form>`;
