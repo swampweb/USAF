@@ -14,8 +14,24 @@
     return client;
   }
   function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function ticketNo(id){ return 'Ticket #' + String(id || '').replace(/-/g,'').slice(0,8).toUpperCase(); }
   function dt(v){ if(!v) return ''; try{return new Date(String(v)+'T00:00:00').toLocaleDateString();}catch{return String(v);} }
+
+  function normStatus(v){ return String(v || 'open').toLowerCase().replace(/\s+/g,'_'); }
+  function isClosedStatus(v){ return ['resolved','closed'].includes(normStatus(v)); }
+  function isActiveStatus(v){ return !isClosedStatus(v); }
+  function statusClass(v){ return 'status-' + normStatus(v).replace(/[^a-z0-9_-]/g,'-'); }
+  function statusLabel(v){ const s=normStatus(v); return s.split('_').map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' '); }
+  function filterRowsByStatus(rows, filter){
+    const f = filter || 'active';
+    if(f === 'all') return rows;
+    if(f === 'closed') return rows.filter(t => isClosedStatus(t.status));
+    if(f === 'resolved') return rows.filter(t => normStatus(t.status)==='resolved');
+    return rows.filter(t => isActiveStatus(t.status));
+  }
+  function filterSelectHtml(current){
+    const f = current || 'active';
+    return `<div class="helpdesk-filter-row"><label>Status <select id="helpdeskStatusFilter"><option value="active" ${f==='active'?'selected':''}>Active / Open</option><option value="all" ${f==='all'?'selected':''}>All</option><option value="closed" ${f==='closed'?'selected':''}>Resolved / Closed</option></select></label></div>`;
+  }
   async function currentUser(){ const r = await sb().auth.getUser(); return r?.data?.user || null; }
   async function profile(uid){ const {data}=await sb().from('USAF_profiles').select('*').eq('id',uid).maybeSingle(); return data || {}; }
   function activeTourLabel(t){
@@ -121,7 +137,7 @@
       const {data,error}=await sb().from(TABLE).select('*').eq('created_by',u.id).order('updated_at',{ascending:false});
       if(error){ panel.innerHTML=`<div class="helpdesk-empty">${esc(error.message)}</div>`; return; }
       const rows=data||[];
-      panel.innerHTML= rows.length ? `<div class="helpdesk-list">${rows.map(t=>`<button class="helpdesk-ticket" type="button" data-ticket="${esc(t.id)}"><strong>${esc(ticketNo(t.id))}</strong><div class="helpdesk-meta"><span class="helpdesk-pill ${t.type==='issue'?'issue':''}">${esc(t.type)}</span><span class="helpdesk-pill ${t.status==='resolved'||t.status==='closed'?'resolved':''}">${esc(t.status)}</span><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div><small>${esc((t.description||'').slice(0,110))}</small></button>`).join('')}</div>` : '<div class="helpdesk-empty">No tickets yet.</div>';
+      const statusFilter=(panel.querySelector('#helpdeskStatusFilter')?.value)||'active'; const shown=filterRowsByStatus(rows,statusFilter); panel.innerHTML=filterSelectHtml(statusFilter)+(shown.length ? `<div class="helpdesk-list">${shown.map(t=>`<button class="helpdesk-ticket ${statusClass(t.status)}" type="button" data-ticket="${esc(t.id)}"><strong>${esc(t.type)} - ${esc(statusLabel(t.status))}</strong><div class="helpdesk-meta"><span>${esc(t.related_tour_label||'No tour')}</span><span>${esc(new Date(t.updated_at||t.created_at).toLocaleString())}</span></div><small>${esc((t.description||'').slice(0,110))}</small></button>`).join('')}</div>` : `<div class="helpdesk-empty">No ${statusFilter==='active'?'active / open':statusFilter} tickets.</div>`); panel.querySelector('#helpdeskStatusFilter')?.addEventListener('change',renderMine);
       panel.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>ticketDetail(b.dataset.ticket));
     }
     el.querySelector('[data-tab="new"]').onclick=renderForm;
@@ -136,9 +152,7 @@
     if(msgError) return alert(msgError.message);
     await sb().from(TABLE).update({user_unread:false}).eq('id',id);
     await updateUserBadge();
-    const el=modal(`<div class="helpdesk-modal"><div class="helpdesk-head"><div><h2>Help Desk ${esc(ticketNo(t.id))}</h2><p>${esc(t.related_tour_label||'No related tour')}</p></div><button class="helpdesk-close" type="button" aria-label="Close">×</button></div><div class="helpdesk-body"><div class="helpdesk-status-line"><span class="helpdesk-pill ${t.type==='issue'?'issue':''}">${esc(t.type)}</span><span class="helpdesk-pill ${t.status==='resolved'||t.status==='closed'?'resolved':''}">${esc(t.status)}</span></div>${(msgs||[]).map(m=>`<div class="helpdesk-message ${m.sender_role==='admin'?'admin':'user'}"><b>${esc(m.sender_role)}</b><p>${esc(m.message)}</p>${m.image_url?`<a class="helpdesk-image-link" href="${esc(m.image_url)}" target="_blank">View image</a>`:''}<div class="helpdesk-muted">${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}${t.status==='resolved'||t.status==='closed'?'<div class="helpdesk-empty">This ticket is closed/resolved.</div><div class="helpdesk-actions"><button class="helpdesk-btn secondary" type="button" data-close-detail>Close</button></div>':`<form class="helpdesk-form" id="userReplyForm"><label>Reply<textarea name="message" required></textarea></label><div class="helpdesk-actions"><button class="helpdesk-btn secondary" type="button" data-cancel-detail>Cancel</button><button class="helpdesk-btn" type="submit">Reply</button></div></form>`}</div></div>`);
-    el.querySelector('[data-cancel-detail]')?.addEventListener('click',()=>el.remove());
-    el.querySelector('[data-close-detail]')?.addEventListener('click',()=>el.remove());
+    const el=modal(`<div class="helpdesk-modal"><div class="helpdesk-head"><div><h2>${esc(t.type)} Ticket</h2><p>${esc(t.related_tour_label||'No related tour')}</p></div><button class="helpdesk-close" type="button">×</button></div><div class="helpdesk-body"><div class="helpdesk-status-line"><span class="helpdesk-pill ${t.type==='issue'?'issue':''}">${esc(t.type)}</span><span class="helpdesk-pill ${t.status==='resolved'?'resolved':''}">${esc(statusLabel(t.status))}</span></div>${(msgs||[]).map(m=>`<div class="helpdesk-message ${m.sender_role==='admin'?'admin':'user'}"><b>${esc(m.sender_role)}</b><p>${esc(m.message)}</p>${m.image_url?`<a class="helpdesk-image-link" href="${esc(m.image_url)}" target="_blank">View image</a>`:''}<div class="helpdesk-muted">${esc(new Date(m.created_at).toLocaleString())}</div></div>`).join('')}${t.status==='resolved'?'<div class="helpdesk-empty">Resolved ticket.</div>':`<form class="helpdesk-form" id="userReplyForm"><label>Reply<textarea name="message" required></textarea></label><div class="helpdesk-actions"><button class="helpdesk-btn" type="submit">Reply</button></div></form>`}</div></div>`);
     el.querySelector('#userReplyForm')?.addEventListener('submit',async(e)=>{e.preventDefault(); const msg=new FormData(e.target).get('message'); const {error}=await sb().from(MSGS).insert({ticket_id:id,sender_id:u.id,sender_role:'user',message:msg}); if(error) return alert(error.message); await sb().from(TABLE).update({status:'user_replied',admin_unread:true,user_unread:false}).eq('id',id); ticketDetail(id);});
   }
   function bind(){
