@@ -27,6 +27,17 @@
     if(error) throw error;
     return data;
   }
+  async function localRequireAuth(){
+    await waitForSupabase();
+    const sessionResult = await sb().auth.getSession();
+    const session = sessionResult?.data?.session;
+    if (!session) {
+      const returnTo = encodeURIComponent('admin/help-desk.html');
+      window.location.replace(`../login.html?returnTo=${returnTo}`);
+      return null;
+    }
+    return session;
+  }
   async function localRequireAdmin(){
     if (typeof window.requireAdmin === 'function' && window.requireAdmin !== localRequireAdmin) return await window.requireAdmin();
     const p = await localGetProfile();
@@ -35,6 +46,9 @@
     return p;
   }
   function ensureAuthGlobals(){
+    if (typeof window.requireAuth !== 'function') window.requireAuth = localRequireAuth;
+    if (typeof window.getCurrentProfile !== 'function') window.getCurrentProfile = localGetProfile;
+    if (typeof window.requireAdmin !== 'function') window.requireAdmin = localRequireAdmin;
     if (typeof window.showProtectedPage !== 'function') window.showProtectedPage = function(){ document.body.style.visibility='visible'; };
     if (typeof window.signOut !== 'function') window.signOut = async function(){ try{ await sb().auth.signOut(); } finally { window.location.replace('../login.html'); } };
   }
