@@ -63,8 +63,16 @@ const MobileApp = (() => {
     return cyclesCache;
   }
 
-  function home(){
-    content.innerHTML = `<div class="action-grid">
+  async function loadProfile(){
+    const { data, error } = await supa().from('USAF_profiles').select('*').eq('id', user.id).maybeSingle();
+    if (error) return {};
+    return data || {};
+  }
+
+  async function home(){
+    const p = await loadProfile();
+    const displayName = p.display_name || user.user_metadata?.display_name || user.email || 'User';
+    content.innerHTML = `<article class="data-card"><strong>Welcome, ${esc(displayName)}</strong><span>${esc(user.email || '')}</span></article><div class="action-grid">
       <a class="action-card" href="tours.html"><div class="action-icon">✈️</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
       <a class="action-card" href="receipts.html"><div class="action-icon">🧾</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
       <a class="action-card" href="vouchers.html"><div class="action-icon">📦</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
@@ -259,7 +267,7 @@ const MobileApp = (() => {
     try{
       await auth();
       if (!user) return;
-      if (page === 'index') home();
+      if (page === 'index') await home();
       else if (page === 'tours' || page === 'cycles') await renderTours();
       else if (page === 'receipts') await renderReceipts();
       else if (page === 'vouchers') await renderVouchers();

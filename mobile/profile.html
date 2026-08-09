@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="assets/css/mobile.css?v=57">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=62">
 </head>
 <body data-page="profile">
   <div class="mobile-shell">
@@ -17,6 +17,7 @@
       <div class="topbar-title"><strong>Orders & Travel</strong><span>Profile</span></div>
       <button class="icon-button" type="button" id="backButton" aria-label="Back">‹</button>
     </header>
+
     <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
       <div class="drawer-head"><strong>Menu</strong><button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button></div>
       <nav class="drawer-nav">
@@ -25,46 +26,156 @@
         <a href="receipts.html">Receipts</a>
         <a href="vouchers.html">Voucher Packages</a>
         <a href="profile.html">My Profile</a>
-        <a href="users.html" id="drawerUsersLink">User Management</a>
         <a href="../dashboard.html">Desktop View</a>
         <button type="button" id="logoutButton">Logout</button>
       </nav>
     </aside>
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
     <main class="mobile-main">
-      <section class="mobile-hero"><h1>Profile</h1><p>View and update your profile in the mobile layout.</p></section>
-      <section id="mobileContent" class="mobile-content"><div class="loading-card">Loading Profile v54...</div></section>
+      <section class="mobile-hero">
+        <h1>My Profile</h1>
+        <p>View and update display name, email, rank, unit, and duty station.</p>
+      </section>
+      <section id="mobileContent" class="mobile-content">
+        <div class="loading-card">Loading...</div>
+      </section>
     </main>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=57"></script>
+  <script src="../assets/js/config.js?v=62"></script>
   <script>
-  (function(){
-    const content = document.getElementById('mobileContent');
+  (() => {
     let client = null;
     let sessionUser = null;
-    let profile = null;
-    const esc = v => String(v ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
-    function showError(title, err){ console.error(title, err); content.innerHTML = '<div class="notice"><strong>' + esc(title) + '</strong><br>' + esc(err && err.message ? err.message : err) + '</div>'; }
-    function getClient(){ if(client) return client; if(!window.supabase) throw new Error('Supabase library did not load.'); if(!window.USAF_CONFIG) throw new Error('USAF config did not load.'); client = window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL, window.USAF_CONFIG.SUPABASE_ANON_KEY, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } }); return client; }
-    async function requireAuth(){ const result = await getClient().auth.getSession(); if(!result.data || !result.data.session){ location.href = '../login.html?returnTo=mobile/profile.html'; return null; } sessionUser = result.data.session.user; return sessionUser; }
-    function setupShell(){ const drawer = document.getElementById('mobileDrawer'); const backdrop = document.getElementById('drawerBackdrop'); const open = () => { drawer.classList.add('open'); backdrop.classList.add('open'); }; const close = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); }; document.getElementById('menuButton').addEventListener('click', open); document.getElementById('closeMenuButton').addEventListener('click', close); backdrop.addEventListener('click', close); document.getElementById('backButton').addEventListener('click', () => { if(history.length > 1) history.back(); else location.href = 'index.html'; }); document.getElementById('logoutButton').addEventListener('click', async () => { await getClient().auth.signOut(); location.href = '../login.html'; }); }
-    async function loadProfile(){ const result = await getClient().from('USAF_profiles').select('*').eq('id', sessionUser.id).maybeSingle(); if(result.error) throw result.error; profile = result.data || {}; }
-    function renderSummary(){
-      const isAdmin = (profile.role || 'user') === 'admin' && profile.is_active !== false;
-      document.getElementById('drawerUsersLink').style.display = isAdmin ? '' : 'none';
-      content.innerHTML = '<article class="data-card"><strong>' + esc(profile.display_name || sessionUser.email) + '</strong><span>' + esc(profile.email || sessionUser.email) + '</span><div class="data-row"><span>Rank</span><b>' + esc(profile.rank || 'Not set') + '</b></div><div class="data-row"><span>Unit</span><b>' + esc(profile.unit || 'Not set') + '</b></div><div class="data-row"><span>Duty Station</span><b>' + esc(profile.duty_station || 'Not set') + '</b></div><div class="data-row"><span>Role</span><b>' + esc(profile.role || 'user') + '</b></div><div class="data-row"><span>Active</span><b>' + (profile.is_active !== false ? 'Yes' : 'No') + '</b></div><button class="btn full" id="openFullProfileBtn">Open Full Profile</button>' + (isAdmin ? '<a class="btn secondary full" href="users.html">Open Mobile User Management</a>' : '') + '</article><div id="profileEditor"></div>';
-      document.getElementById('openFullProfileBtn').addEventListener('click', renderEditor);
+    let profile = {};
+    const content = document.getElementById('mobileContent');
+
+    const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+    function getClient(){
+      if (client) return client;
+      if (!window.supabase || !window.USAF_CONFIG) throw new Error('Supabase or config.js did not load.');
+      client = window.supabase.createClient(window.USAF_CONFIG.SUPABASE_URL, window.USAF_CONFIG.SUPABASE_ANON_KEY, {
+        auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+      });
+      return client;
     }
+
+    function showError(title, err){
+      console.error(title, err);
+      content.innerHTML = '<div class="notice"><strong>' + esc(title) + '</strong><br>' + esc(err?.message || err || 'Unknown error') + '</div>';
+    }
+
+    function setupShell(){
+      const drawer = document.getElementById('mobileDrawer');
+      const backdrop = document.getElementById('drawerBackdrop');
+      const open = () => { drawer?.classList.add('open'); backdrop?.classList.add('open'); drawer?.setAttribute('aria-hidden','false'); };
+      const close = () => { drawer?.classList.remove('open'); backdrop?.classList.remove('open'); drawer?.setAttribute('aria-hidden','true'); };
+      document.getElementById('menuButton')?.addEventListener('click', open);
+      document.getElementById('closeMenuButton')?.addEventListener('click', close);
+      backdrop?.addEventListener('click', close);
+      document.getElementById('backButton')?.addEventListener('click', () => { if (history.length > 1) history.back(); else location.href = 'index.html'; });
+      document.getElementById('logoutButton')?.addEventListener('click', async () => { await getClient().auth.signOut(); location.href = '../login.html'; });
+    }
+
+    async function requireAuth(){
+      const { data } = await getClient().auth.getSession();
+      if (!data?.session){ location.href = '../login.html?returnTo=mobile/profile.html'; return null; }
+      sessionUser = data.session.user;
+      return sessionUser;
+    }
+
+    async function loadProfile(){
+      const { data, error } = await getClient().from('USAF_profiles').select('*').eq('id', sessionUser.id).maybeSingle();
+      if (error) throw error;
+      profile = data || { id: sessionUser.id, email: sessionUser.email, display_name: sessionUser.user_metadata?.display_name || '' };
+      if (!profile.email) profile.email = sessionUser.email || '';
+      return profile;
+    }
+
+    function renderSummary(){
+      const displayName = profile.display_name || sessionUser.email || 'My Profile';
+      content.innerHTML = '<article class="data-card"><strong>' + esc(displayName) + '</strong><span>' + esc(profile.email || sessionUser.email || '') + '</span>' +
+        '<div class="data-row"><span>Rank</span><b>' + esc(profile.rank || 'Not set') + '</b></div>' +
+        '<div class="data-row"><span>Unit</span><b>' + esc(profile.unit || 'Not set') + '</b></div>' +
+        '<div class="data-row"><span>Duty Station</span><b>' + esc(profile.duty_station || 'Not set') + '</b></div>' +
+        '<div class="data-row"><span>Role</span><b>' + esc(profile.role || 'user') + '</b></div>' +
+        '<button class="btn full" type="button" id="editProfileBtn">Edit Profile</button></article><div id="profileEditor"></div>';
+      document.getElementById('editProfileBtn').addEventListener('click', renderEditor);
+    }
+
     function renderEditor(){
-      document.getElementById('profileEditor').innerHTML = '<form class="form-card" id="profileForm"><strong>Full Mobile Profile</strong><label>Display Name<input id="display_name" required value="' + esc(profile.display_name || sessionUser.user_metadata?.display_name || sessionUser.email || '') + '"></label><label>Email<input id="email" type="email" required value="' + esc(profile.email || sessionUser.email || '') + '"></label><label>Rank<input id="rank" value="' + esc(profile.rank || '') + '"></label><label>Unit<input id="unit" value="' + esc(profile.unit || '') + '"></label><label>Duty Station<input id="duty_station" value="' + esc(profile.duty_station || '') + '"></label><div class="notice">Role and active status are managed by an Admin.</div><button class="btn full" type="submit">Save Profile</button><button class="btn secondary full" type="button" id="closeProfileForm">Close</button></form><form class="form-card" id="passwordForm"><strong>Update Password</strong><label>New Password<input id="new_password" type="password" autocomplete="new-password" minlength="6"></label><button class="btn secondary full" type="submit">Update Password</button></form>';
-      document.getElementById('closeProfileForm').addEventListener('click', () => document.getElementById('profileEditor').innerHTML = '');
+      const wrap = document.getElementById('profileEditor');
+      wrap.innerHTML = '<form class="form-card" id="profileForm"><strong>Edit Profile</strong>' +
+        '<label>Display Name<input id="display_name" value="' + esc(profile.display_name || '') + '"></label>' +
+        '<label>Email<input id="profile_email" type="email" value="' + esc(profile.email || sessionUser.email || '') + '"></label>' +
+        '<label>Rank<input id="rank" value="' + esc(profile.rank || '') + '"></label>' +
+        '<label>Unit<input id="unit" value="' + esc(profile.unit || '') + '"></label>' +
+        '<label>Duty Station<input id="duty_station" value="' + esc(profile.duty_station || '') + '"></label>' +
+        '<div class="notice">Role and active status are managed by an Admin.</div>' +
+        '<button class="btn full" type="submit">Save Profile</button>' +
+        '<button class="btn secondary full" type="button" id="closeProfileForm">Close</button></form>' +
+        '<form class="form-card" id="passwordForm"><strong>Update Password</strong>' +
+        '<label>New Password<input id="new_password" type="password" autocomplete="new-password" minlength="6"></label>' +
+        '<button class="btn secondary full" type="submit">Update Password</button></form>';
+      document.getElementById('closeProfileForm').addEventListener('click', () => wrap.innerHTML = '');
       document.getElementById('profileForm').addEventListener('submit', saveProfile);
       document.getElementById('passwordForm').addEventListener('submit', updatePassword);
+      wrap.scrollIntoView({ behavior:'smooth', block:'start' });
     }
-    async function saveProfile(e){ e.preventDefault(); const newEmail = email.value.trim(); const payload = { id: sessionUser.id, display_name: display_name.value.trim(), email: newEmail, rank: rank.value.trim() || null, unit: unit.value.trim() || null, duty_station: duty_station.value.trim() || null }; const result = await getClient().from('USAF_profiles').upsert(payload); if(result.error) return showError('Profile save failed.', result.error); if(newEmail && newEmail !== sessionUser.email){ const emailResult = await getClient().auth.updateUser({ email:newEmail }); if(emailResult.error) return showError('Profile saved, but email update failed.', emailResult.error); alert('Profile saved. Confirm the email change if Supabase sends a confirmation email.'); } else { alert('Profile saved.'); } await loadProfile(); renderSummary(); }
-    async function updatePassword(e){ e.preventDefault(); const value = new_password.value; if(!value) return alert('Enter a new password first.'); const result = await getClient().auth.updateUser({ password:value }); if(result.error) return showError('Password update failed.', result.error); new_password.value = ''; alert('Password updated.'); }
-    async function init(){ try { setupShell(); await requireAuth(); if(!sessionUser) return; await loadProfile(); renderSummary(); } catch(err){ showError('Mobile Profile failed to load.', err); } }
+
+    async function saveProfile(e){
+      e.preventDefault();
+      const displayNameEl = document.getElementById('display_name');
+      const emailEl = document.getElementById('profile_email');
+      const rankEl = document.getElementById('rank');
+      const unitEl = document.getElementById('unit');
+      const dutyStationEl = document.getElementById('duty_station');
+      const newEmail = (emailEl?.value || '').trim();
+      const payload = {
+        id: sessionUser.id,
+        display_name: (displayNameEl?.value || '').trim() || null,
+        email: newEmail || sessionUser.email || null,
+        rank: (rankEl?.value || '').trim() || null,
+        unit: (unitEl?.value || '').trim() || null,
+        duty_station: (dutyStationEl?.value || '').trim() || null
+      };
+      let result = await getClient().from('USAF_profiles').update(payload).eq('id', sessionUser.id).select().maybeSingle();
+      if (!result.error && !result.data) result = await getClient().from('USAF_profiles').insert(payload).select().maybeSingle();
+      if (result.error) return showError('Profile save failed.', result.error);
+      if (newEmail && newEmail !== sessionUser.email){
+        const emailResult = await getClient().auth.updateUser({ email:newEmail });
+        if (emailResult.error) return showError('Profile saved, but email update failed.', emailResult.error);
+        alert('Profile saved. Confirm the email change if Supabase sends a confirmation email.');
+      } else {
+        alert('Profile saved.');
+      }
+      await loadProfile();
+      renderSummary();
+    }
+
+    async function updatePassword(e){
+      e.preventDefault();
+      const passwordEl = document.getElementById('new_password');
+      const value = passwordEl?.value || '';
+      if (!value) return alert('Enter a new password first.');
+      const result = await getClient().auth.updateUser({ password:value });
+      if (result.error) return showError('Password update failed.', result.error);
+      passwordEl.value = '';
+      alert('Password updated.');
+    }
+
+    async function init(){
+      try {
+        setupShell();
+        await requireAuth();
+        if (!sessionUser) return;
+        await loadProfile();
+        renderSummary();
+      } catch(err){ showError('Mobile Profile failed to load.', err); }
+    }
     init();
   })();
   </script>
