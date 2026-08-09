@@ -15,6 +15,7 @@ function filteredTours() {
 
 async function initTours() {
   await renderLayout('Tours');
+  if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
   bindEvents();
   await loadTours();
 }
@@ -31,10 +32,10 @@ function bindEvents() {
 }
 
 async function loadTours() {
-  const { data, error } = await window.usafSupabase
-    .from('USAF_tour_summary')
-    .select('*')
-    .order('orders_start_date', { ascending: false });
+  const effectiveUser = window.USAFEffectiveUser ? await window.USAFEffectiveUser.getEffectiveUser() : await getCurrentUser();
+  let query = window.usafSupabase.from('USAF_tour_summary').select('*').order('orders_start_date', { ascending: false });
+  if (window.USAFEffectiveUser?.isViewAsActive() && effectiveUser?.id) query = query.eq('user_id', effectiveUser.id);
+  const { data, error } = await query;
   if (error) {
     tourCards.innerHTML = `<div class="empty-state">${error.message}</div>`;
     return;
@@ -139,6 +140,7 @@ async function saveTour(e) {
   await selectTour(result.data.id);
 }
 async function toggleTourActive() {
+  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
   if (!selectedTour) return;
   const newStatus = activeStatus(selectedTour.status) ? 'cancelled' : 'active';
   const { error } = await window.usafSupabase.from('USAF_tours').update({ status:newStatus }).eq('id', selectedTour.id);
@@ -147,6 +149,7 @@ async function toggleTourActive() {
 }
 
 async function deleteTour() {
+  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
   if (!selectedTour) return;
   if (!confirm(`Delete Tour "${selectedTour.tour_name || 'selected tour'}"? This cannot be undone.`)) return;
   const { error } = await window.usafSupabase.from('USAF_tours').delete().eq('id', selectedTour.id).eq('user_id', selectedTour.user_id || (await getCurrentUser()).id);
@@ -191,6 +194,7 @@ async function saveCycle(e) {
   await selectTour(selectedTour.id);
 }
 async function toggleCycleActive(id) {
+  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
   const cycle = currentCycles.find(c => c.id === id);
   if (!cycle) return;
   const newStatus = cycle.status === 'cancelled' ? 'active' : 'cancelled';

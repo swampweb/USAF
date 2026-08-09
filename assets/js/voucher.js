@@ -89,31 +89,13 @@ async function loadAvailableReceipts() {
 }
 
 async function loadPackages() {
-  const direct = await window.usafSupabase
+  const { data, error } = await window.usafSupabase
     .from('USAF_vouchers')
     .select('*')
     .eq('tour_id', selectedTour.id)
     .order('created_at', { ascending:false });
-  if (direct.error) { showVoucherError('Package Load Failed', direct.error.message); packagesCache = []; return; }
-
-  const byItem = await window.usafSupabase
-    .from('USAF_voucher_items')
-    .select('voucher_id, USAF_receipts!inner(tour_id)')
-    .eq('USAF_receipts.tour_id', selectedTour.id);
-
-  const directRows = direct.data || [];
-  const directIds = new Set(directRows.map(p => p.id));
-  const missingIds = [...new Set((byItem.data || []).map(i => i.voucher_id).filter(id => id && !directIds.has(id)))];
-  let linkedRows = [];
-  if (missingIds.length) {
-    const linked = await window.usafSupabase
-      .from('USAF_vouchers')
-      .select('*')
-      .in('id', missingIds)
-      .order('created_at', { ascending:false });
-    if (!linked.error) linkedRows = linked.data || [];
-  }
-  packagesCache = [...directRows, ...linkedRows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  if (error) { showVoucherError('Package Load Failed', error.message); packagesCache = []; return; }
+  packagesCache = data || [];
 }
 
 function renderWorkspace() {
@@ -181,6 +163,7 @@ function showCreatePackageConfirm(rows) {
 }
 
 async function createPackage() {
+  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
   const checked = Array.from(document.querySelectorAll('[data-include-receipt]:checked')).map(cb => cb.dataset.includeReceipt);
   if (!checked.length) return showVoucherError('No Receipts Selected', 'Select at least one receipt to include in the voucher package.');
   const rows = availableReceipts.filter(r => checked.includes(r.id));
@@ -188,7 +171,7 @@ async function createPackage() {
 }
 
 async function executeCreatePackage(rows) {
-  const user = await getCurrentUser();
+  const user = window.USAFEffectiveUser ? await window.USAFEffectiveUser.getEffectiveUser() : await getCurrentUser();
   const payload = { user_id:user.id, tour_id:selectedTour.id, date_from:voucherFrom.value, date_to:voucherTo.value, status:'created', receipt_count:rows.length, total_amount:sumRows(rows), created_by:user.id };
   const { data: voucher, error } = await window.usafSupabase.from('USAF_vouchers').insert(payload).select().single();
   if (error) return showVoucherError('Package Creation Failed', error.message);
@@ -306,6 +289,7 @@ function showDeletePackageConfirm(packageId, pkg, rowCount) {
   });
 }
 async function deletePackage(packageId) {
+  if (window.USAFEffectiveUser?.isViewAsActive()) return alert('Read-only while viewing as another user.');
   const pkg = packagesCache.find(p => p.id === packageId);
   if (!pkg) return showVoucherError('Package Not Found', 'The selected voucher package could not be found.');
   let rows;

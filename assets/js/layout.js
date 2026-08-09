@@ -24,9 +24,9 @@ const USER_LINKS = [
   { label: "Dashboard", href: "dashboard.html", icon: "home" },
   { label: "Tours", href: "tours.html", icon: "folder" },
   { label: "Per Diem Receipts", href: "receipts.html", icon: "receipt" },
+  { label: "Other Receipts", href: "other-receipts.html", icon: "folder" },
   { label: "Voucher / Downloads", href: "voucher-downloads.html", icon: "download" },
-  { label: "Reports", href: "reports.html", icon: "bar-chart" },
-  { label: "Profile", href: "profile.html", icon: "user" }
+  { label: "Reports", href: "reports.html", icon: "bar-chart" }
 ];
 
 function isAdminPath() {
@@ -69,7 +69,6 @@ function iconSvg(name) {
     download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     'bar-chart': '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
-    user: '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>',
     tags: '<path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r=".5"/>',
     palette: '<path d="M12 22a10 10 0 1 1 10-10 3 3 0 0 1-3 3h-2a2 2 0 0 0-2 2v1a4 4 0 0 1-3 4z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1v.17a2 2 0 1 1-4 0V21a1.65 1.65 0 0 0-.4-1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.4H2.83a2 2 0 1 1 0-4H3a1.65 1.65 0 0 0 1-.4 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1V2.83a2 2 0 1 1 4 0V3a1.65 1.65 0 0 0 .4 1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.36.69.6 1 .28.24.62.38 1 .4h.17a2 2 0 1 1 0 4H21c-.38.02-.72.16-1 .4-.24.31-.46.64-.6 1z"/>',
@@ -134,3 +133,7 @@ function fmtDate(dateValue) {
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+
+
+// v74: refresh View as User banner/read-only state after layout renders.
+setTimeout(() => { if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi(); }, 0);
