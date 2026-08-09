@@ -3,12 +3,23 @@
   const MSGS='USAF_helpdesk_messages';
   let selected=null;
   function sb(){return window.usafSupabase;}
+
+  function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+  async function waitForSupabase(){
+    for (let i = 0; i < 50; i++) {
+      if (window.usafSupabase) return window.usafSupabase;
+      await sleep(100);
+    }
+    const hasConfig = !!window.USAF_CONFIG;
+    const hasLibrary = !!window.supabase;
+    throw new Error(`Supabase client did not load. config.js loaded: ${hasConfig}. Supabase library loaded: ${hasLibrary}. Check admin/help-desk.html script order and assets/js/supabaseClient.js.`);
+  }
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function ticketNo(id){return 'Ticket #'+String(id||'').replace(/-/g,'').slice(0,8).toUpperCase();}
   function pill(t){return `<span class="helpdesk-pill ${t.type==='issue'?'issue':''} ${t.status==='resolved'||t.status==='closed'?'resolved':''}">${esc(t.type)} / ${esc(t.status)}</span>`;}
   async function localGetProfile(){
     if (typeof window.getCurrentProfile === 'function' && window.getCurrentProfile !== localGetProfile) return await window.getCurrentProfile();
-    if (!sb()) throw new Error('Supabase client did not load.');
+    await waitForSupabase();
     const sessionResult = await sb().auth.getSession();
     const user = sessionResult?.data?.session?.user;
     if (!user) { window.location.replace('../login.html?returnTo=admin/help-desk.html'); return null; }
@@ -63,6 +74,7 @@
   async function boot(){
     try{
       ensureAuthGlobals();
+      await waitForSupabase();
       const p=await localRequireAdmin();
       if(!p) return;
       if (typeof window.renderLayout === 'function') await renderLayout('Help Desk'); else document.body.style.visibility='visible';
