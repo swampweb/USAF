@@ -65,10 +65,10 @@ const MobileApp = (() => {
 
   function home(){
     content.innerHTML = `<div class="action-grid">
-      <a class="action-card" href="tours.html"><div class="action-icon">T</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="receipts.html"><div class="action-icon">R</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="vouchers.html"><div class="action-icon">V</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="profile.html"><div class="action-icon">P</div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="tours.html"><div class="action-icon">✈️</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="receipts.html"><div class="action-icon">🧾</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="vouchers.html"><div class="action-icon">📦</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="profile.html"><div class="action-icon">👤</div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
     </div>`;
   }
 
