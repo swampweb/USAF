@@ -65,10 +65,10 @@ const MobileApp = (() => {
 
   function home(){
     content.innerHTML = `<div class="action-grid">
-      <a class="action-card" href="tours.html"><div class="action-icon"><svg class="mobile-card-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 16 22 8l-8 13-3-7-7-3z"/><path d="m11 14 4-4"/></svg></div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="receipts.html"><div class="action-icon"><svg class="mobile-card-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="vouchers.html"><div class="action-icon"><svg class="mobile-card-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
-      <a class="action-card" href="profile.html"><div class="action-icon"><svg class="mobile-card-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg></div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="tours.html"><div class="action-icon">T</div><div><strong>Tours</strong><span>Manage tours, cycles, and receipts.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="receipts.html"><div class="action-icon">R</div><div><strong>Receipts</strong><span>View receipt details.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="vouchers.html"><div class="action-icon">V</div><div><strong>Voucher Packages</strong><span>Build voucher packages.</span></div><div class="action-arrow">›</div></a>
+      <a class="action-card" href="profile.html"><div class="action-icon">P</div><div><strong>Profile</strong><span>View your account.</span></div><div class="action-arrow">›</div></a>
     </div>`;
   }
 
