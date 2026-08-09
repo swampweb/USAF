@@ -1,8 +1,9 @@
-// Mobile split loader v75
-// Keeps mobile page logic split across dedicated files. Do not paste page logic into this loader.
+// Mobile split loader v77
+// Keeps mobile page logic split across dedicated files.
+// Fixes View as User helper path from mobile/assets/js/ to root assets/js/.
 (() => {
   const scripts = [
-    '../assets/js/effective-user.js',
+    '../../assets/js/effective-user.js',
     'mobile-shell.js',
     'mobile-dashboard.js',
     'mobile-cycles.js',
