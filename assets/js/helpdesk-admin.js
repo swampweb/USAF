@@ -7,7 +7,7 @@
   function ticketNo(id){return 'Ticket #'+String(id||'').replace(/-/g,'').slice(0,8).toUpperCase();}
   function pill(t){return `<span class="helpdesk-pill ${t.type==='issue'?'issue':''} ${t.status==='resolved'||t.status==='closed'?'resolved':''}">${esc(t.type)} / ${esc(t.status)}</span>`;}
   async function localGetProfile(){
-    if (typeof window.getCurrentProfile === 'function') return await window.getCurrentProfile();
+    if (typeof window.getCurrentProfile === 'function' && window.getCurrentProfile !== localGetProfile) return await window.getCurrentProfile();
     if (!sb()) throw new Error('Supabase client did not load.');
     const sessionResult = await sb().auth.getSession();
     const user = sessionResult?.data?.session?.user;
@@ -17,14 +17,13 @@
     return data;
   }
   async function localRequireAdmin(){
-    if (typeof window.requireAdmin === 'function') return await window.requireAdmin();
+    if (typeof window.requireAdmin === 'function' && window.requireAdmin !== localRequireAdmin) return await window.requireAdmin();
     const p = await localGetProfile();
     if (!p) return null;
     if (p.role !== 'admin') { window.location.replace('../dashboard.html'); return null; }
     return p;
   }
   function ensureAuthGlobals(){
-    if (typeof window.getCurrentProfile !== 'function') window.getCurrentProfile = localGetProfile;
     if (typeof window.showProtectedPage !== 'function') window.showProtectedPage = function(){ document.body.style.visibility='visible'; };
     if (typeof window.signOut !== 'function') window.signOut = async function(){ try{ await sb().auth.signOut(); } finally { window.location.replace('../login.html'); } };
   }
