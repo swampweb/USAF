@@ -1,29 +1,59 @@
-// Orders & Travel Tracker Admin Users v76
-// Adds Report role UI and View as User button.
+// Orders & Travel Tracker Admin Users v78
+// Fixes blank Admin Users page, keeps Report role and View as User.
 let usersCache = [];
 let selectedUser = null;
 
+function showAdminUsersError(message) {
+  document.body.style.visibility = 'visible';
+  const cards = document.getElementById('userCards');
+  const editor = document.getElementById('userEditor');
+  const html = `<div class="empty-state">${escapeHtml(message || 'Admin Users failed to load.')}</div>`;
+  if (cards) cards.innerHTML = html;
+  if (editor) editor.innerHTML = `<h2>Admin Users Error</h2>${html}`;
+  console.error(message);
+}
+
 async function initAdminUsers() {
-  await requireAdmin();
-  await renderLayout('Admin - Users');
+  try {
+    document.body.style.visibility = 'visible';
 
-  const filter = document.getElementById('userFilter');
-  if (filter) filter.addEventListener('change', renderUserCards);
+    if (typeof requireAdmin === 'function') {
+      await requireAdmin();
+    }
 
-  await loadUsers();
+    if (typeof renderLayout === 'function') {
+      await renderLayout('Admin - Users');
+    }
 
-  if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
+    document.body.style.visibility = 'visible';
+
+    const filter = document.getElementById('userFilter');
+    if (filter) filter.addEventListener('change', renderUserCards);
+
+    await loadUsers();
+
+    if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
+  } catch (err) {
+    showAdminUsersError(err && err.message ? err.message : String(err));
+  }
 }
 
 async function loadUsers() {
   const cards = document.getElementById('userCards');
+  if (cards) cards.innerHTML = '<div class="empty-state">Loading users...</div>';
+
+  if (!window.usafSupabase) {
+    showAdminUsersError('Supabase client did not load. Check config.js and supabaseClient.js.');
+    return;
+  }
+
   const { data, error } = await window.usafSupabase
     .from('USAF_profiles')
     .select('*')
     .order('display_name', { ascending: true });
 
   if (error) {
-    if (cards) cards.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    showAdminUsersError(error.message);
     return;
   }
 
@@ -37,9 +67,9 @@ function filteredUsers() {
 
   if (f === 'active') return usersCache.filter(u => u.is_active !== false);
   if (f === 'inactive') return usersCache.filter(u => u.is_active === false);
-  if (f === 'admin') return usersCache.filter(u => (u.role || '').toLowerCase() === 'admin');
-  if (f === 'report') return usersCache.filter(u => (u.role || '').toLowerCase() === 'report');
-  if (f === 'user') return usersCache.filter(u => (u.role || 'user').toLowerCase() === 'user');
+  if (f === 'admin') return usersCache.filter(u => String(u.role || '').toLowerCase() === 'admin');
+  if (f === 'report') return usersCache.filter(u => String(u.role || '').toLowerCase() === 'report');
+  if (f === 'user') return usersCache.filter(u => String(u.role || 'user').toLowerCase() === 'user');
 
   return usersCache;
 }
@@ -50,16 +80,11 @@ function renderUserCards() {
 
   const rows = filteredUsers();
   cards.innerHTML = rows.map(u => {
-    const name = escapeHtml(u.display_name || u.email || 'User');
-    const email = escapeHtml(u.email || '');
-    const role = escapeHtml(u.role || 'user');
-    const active = u.is_active !== false ? 'Yes' : 'No';
-    const isActive = selectedUser && selectedUser.id === u.id ? 'active' : '';
-
-    return `<button class="user-select-card ${isActive}" data-id="${u.id}">
-      <strong>${name}</strong>
-      <span class="meta">${email}</span>
-      <span class="meta">Role: ${role} | Active: ${active}</span>
+    const activeClass = selectedUser && selectedUser.id === u.id ? 'active' : '';
+    return `<button class="user-select-card ${activeClass}" data-id="${escapeAttr(u.id)}">
+      <strong>${escapeHtml(u.display_name || u.email || 'User')}</strong>
+      <span class="meta">${escapeHtml(u.email || '')}</span>
+      <span class="meta">Role: ${escapeHtml(u.role || 'user')} | Active: ${u.is_active !== false ? 'Yes' : 'No'}</span>
     </button>`;
   }).join('') || '<div class="empty-state">No users found.</div>';
 
@@ -105,10 +130,10 @@ function selectUser(id) {
 
 function startViewAsSelectedUser() {
   if (!selectedUser) return alert('Select a user first.');
-  if (!window.USAFEffectiveUser) return alert('View as User helper did not load. Refresh the page with v=76.');
+  if (!window.USAFEffectiveUser) return alert('View as User helper did not load. Refresh the page with v=78.');
 
   window.USAFEffectiveUser.setViewAsUser(selectedUser);
-  window.location.href = '../index.html?v=76';
+  window.location.href = '../index.html?v=78';
 }
 
 async function saveSelectedUser(e) {
@@ -149,4 +174,8 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
-initAdminUsers();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdminUsers);
+} else {
+  initAdminUsers();
+}

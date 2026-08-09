@@ -8,13 +8,13 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="../assets/css/styles.css?v=76">
+  <link rel="stylesheet" href="../assets/css/styles.css?v=78">
 </head>
-<body style="visibility:hidden">
+<body>
   <div class="layout">
     <aside class="sidebar"></aside>
     <main class="main">
-      <section class="hero"><h1>Admin - Users</h1><p>Track receipts, cycles, vouchers, and reports.</p></section>
+      <section class="hero"><h1>Admin - Users</h1><p>Manage users, roles, active status, and read-only user view.</p></section>
       <section class="content-grid two-col">
         <div class="card">
           <h2>Users</h2>
@@ -29,7 +29,7 @@
               <option value="user">Users</option>
             </select>
           </label>
-          <div id="userCards" class="stacked-list" style="margin-top:14px"></div>
+          <div id="userCards" class="stacked-list" style="margin-top:14px"><div class="empty-state">Loading users...</div></div>
         </div>
         <div class="card" id="userEditor">
           <h2>Edit User</h2>
@@ -39,11 +39,11 @@
     </main>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=76"></script>
-  <script src="../assets/js/supabaseClient.js?v=76"></script>
-  <script src="../assets/js/auth.js?v=76"></script>
-  <script src="../assets/js/effective-user.js?v=76"></script>
-  <script src="../assets/js/layout.js?v=76"></script>
-  <script src="../assets/js/admin-users.js?v=76"></script>
+  <script src="../assets/js/config.js?v=78"></script>
+  <script src="../assets/js/supabaseClient.js?v=78"></script>
+  <script src="../assets/js/auth.js?v=78"></script>
+  <script src="../assets/js/effective-user.js?v=78"></script>
+  <script src="../assets/js/layout.js?v=78"></script>
+  <script src="../assets/js/admin-users.js?v=78"></script>
 </body>
 </html>
