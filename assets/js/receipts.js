@@ -1,4 +1,4 @@
-// Receipts desktop workflow v20
+// Receipts desktop workflow v21
 // Consolidates Per Diem and Other receipts on one Receipts page.
 // Limits Tours, Cycles, and Receipts to the signed-in/effective user.
 // Adds date validation and receipt delete support.
@@ -243,11 +243,11 @@ function renderReceiptWorkspace() {
   if (!selectedTour) return;
   tourReceiptWrap.innerHTML = `<div class="card">
     <div class="toolbar"><div><h2>${esc(selectedTour.tour_name || 'Tour Receipts')}</h2><p class="muted">${dt(selectedTour.orders_start_date)} - ${dt(selectedTour.orders_end_date)}</p></div><button class="btn" id="addReceiptBtn" ${isReadOnlyViewAs() ? 'disabled' : ''}>+ Add Receipt</button></div>
-    <div class="summary-grid receipt-summary-clean">
-      <div class="summary-card"><span>Per Diem Receipts</span><strong>${receiptCountAndTotal(receiptsByScope('per_diem'))}</strong><small>Count and total</small></div>
-      <div class="summary-card"><span>Other Receipts</span><strong>${receiptCountAndTotal(receiptsByScope('other'))}</strong><small>Count and total</small></div>
-      <div class="summary-card"><span>All Receipts</span><strong>${receiptCountAndTotal(receiptsCache)}</strong><small>Count and total</small></div>
-      <div class="summary-card"><span>Files Attached</span><strong>📎 ${receiptsCache.filter(hasReceiptFile).length}</strong><small>Receipt attachments</small></div>
+    <div class="receipt-tour-summary-strip">  
+      <div class="receipt-summary-tile"><span>Per Diem Receipts</span><strong>${receiptsByScope('per_diem').length}</strong><small>${money(receiptTotal('per_diem'))}</small></div>  
+      <div class="receipt-summary-tile"><span>Other Receipts</span><strong>${receiptsByScope('other').length}</strong><small>${money(receiptTotal('other'))}</small></div>  
+      <div class="receipt-summary-tile"><span>All Receipts</span><strong>${receiptsCache.length}</strong><small>${money(receiptTotal('per_diem') + receiptTotal('other'))}</small></div>  
+      <div class="receipt-summary-tile"><span>Files Attached</span><strong>${receiptsCache.filter(hasReceiptFile).length}</strong><small>Receipt attachments</small></div>  
     </div>
     <h3>Per Diem Receipts</h3>${receiptTable('per_diem')}
     <h3>Other Receipts</h3>${receiptTable('other')}
