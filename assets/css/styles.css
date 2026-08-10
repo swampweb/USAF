@@ -539,3 +539,67 @@ button[data-view-receipt] { display: none !important; }
     flex-direction: column;
   }
 }
+
+
+/* Desktop Receipt Attachment Edit and Compact Cards v20 */
+.attachment-existing.remove-pending {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+.compact-receipt-list {
+  gap: 8px;
+}
+.desktop-receipt-card.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 12px 14px;
+  gap: 14px;
+}
+.desktop-receipt-left {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.desktop-receipt-right {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  align-self: stretch;
+  align-content: space-between;
+}
+.desktop-receipt-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.desktop-receipt-meta-line > span {
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 5px 8px;
+  max-width: 100%;
+}
+.desktop-receipt-meta-line b {
+  color: #344054;
+}
+.file-view-btn {
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+.file-view-btn:hover span {
+  text-decoration: underline;
+}
+@media (max-width: 900px) {
+  .desktop-receipt-card.compact {
+    grid-template-columns: 1fr;
+  }
+  .desktop-receipt-right {
+    justify-items: start;
+  }
+}

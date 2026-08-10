@@ -1,4 +1,4 @@
-// Receipts desktop workflow v19
+// Receipts desktop workflow v20
 // Consolidates Per Diem and Other receipts on one Receipts page.
 // Limits Tours, Cycles, and Receipts to the signed-in/effective user.
 // Adds date validation and receipt delete support.
@@ -45,7 +45,10 @@ function receiptFileHtml(r, compact = false) {
   if (!hasReceiptFile(r)) return compact ? '<span class="muted">No file</span>' : '<span class="receipt-file-empty">No file attached</span>';
   const size = fileSizeLabel(r.file_size_bytes);
   const label = receiptFileLabel(r) || 'Receipt attached';
-  return `<span class="receipt-file-pill" title="${esc(label)}${size ? ' • ' + esc(size) : ''}">📎 <span>${esc(label)}</span>${size ? `<small>${esc(size)}</small>` : ''}</span>`;
+  const filePath = r.file_path || r.receipt_file_path || r.attachment_path || r.storage_path || '';
+  const fileBucket = r.file_bucket || (window.USAF_CONFIG && window.USAF_CONFIG.STORAGE_BUCKET) || '';
+  const directUrl = r.receipt_file_url || r.receipt_url || r.file_url || r.attachment_url || '';
+  return `<button type="button" class="receipt-file-pill file-view-btn" data-view-receipt-file="${esc(r.id)}" data-file-path="${esc(filePath)}" data-file-bucket="${esc(fileBucket)}" data-file-url="${esc(directUrl)}" title="Open ${esc(label)}${size ? ' • ' + esc(size) : ''}">📎 <span>${esc(label)}</span>${size ? `<small>${esc(size)}</small>` : ''}</button>`;
 }
 function cycleLabelForReceipt(r) {
   const c = cyclesCache.find(x => x.id === r.cycle_id);
@@ -53,6 +56,61 @@ function cycleLabelForReceipt(r) {
 }
 function receiptTypeName(r) {
   return r.USAF_receipt_types?.name || r.type_name || r.receipt_type || '';
+}
+async function viewReceiptFile(receiptId) {
+  const r = receiptsCache.find(x => x.id === receiptId);
+  if (!r || !hasReceiptFile(r)) return alert('No receipt file is attached to this receipt.');
+  const directUrl = r.receipt_file_url || r.receipt_url || r.file_url || r.attachment_url || '';
+  if (directUrl) {
+    window.open(directUrl, '_blank', 'noopener');
+    return;
+  }
+  const bucket = r.file_bucket || window.USAF_CONFIG?.STORAGE_BUCKET;
+  const path = r.file_path || r.receipt_file_path || r.attachment_path || r.storage_path;
+  if (!bucket || !path) return alert('Receipt file information is missing.');
+  try {
+    const signed = await window.usafSupabase.storage.from(bucket).createSignedUrl(path, 60 * 10);
+    if (signed.error) throw signed.error;
+    window.open(signed.data.signedUrl, '_blank', 'noopener');
+  } catch (err) {
+    alert('Unable to open receipt file: ' + (err.message || err));
+  }
+}
+function ensureExistingAttachmentBox() {
+  if (document.getElementById('existingReceiptFileBox')) return document.getElementById('existingReceiptFileBox');
+  const fileInput = document.getElementById('receipt_file');
+  if (!fileInput) return null;
+  const box = document.createElement('div');
+  box.id = 'existingReceiptFileBox';
+  box.className = 'attachment-existing hidden';
+  box.innerHTML = '<div><strong>No current file</strong><span>No receipt file is attached.</span></div><div class="attachment-actions"><button type="button" class="btn small secondary" id="viewExistingReceiptFileBtn">View File</button><button type="button" class="btn small danger" id="removeExistingReceiptFileBtn">Remove File</button></div><input type="hidden" id="remove_receipt_file" value="0">';
+  fileInput.closest('label')?.insertAdjacentElement('afterend', box);
+  return box;
+}
+function showExistingAttachment(receipt) {
+  const box = ensureExistingAttachmentBox();
+  if (!box) return;
+  const removeFlag = document.getElementById('remove_receipt_file');
+  if (removeFlag) removeFlag.value = '0';
+  if (!receipt || !hasReceiptFile(receipt)) {
+    box.classList.add('hidden');
+    return;
+  }
+  const size = fileSizeLabel(receipt.file_size_bytes);
+  const label = receiptFileLabel(receipt) || 'Receipt attached';
+  box.classList.remove('hidden');
+  box.querySelector('strong').textContent = 'Current receipt file';
+  box.querySelector('span').textContent = `${label}${size ? ' • ' + size : ''}`;
+  const viewBtn = document.getElementById('viewExistingReceiptFileBtn');
+  const removeBtn = document.getElementById('removeExistingReceiptFileBtn');
+  if (viewBtn) viewBtn.onclick = () => viewReceiptFile(receipt.id);
+  if (removeBtn) removeBtn.onclick = () => {
+    if (!confirm('Remove the attached receipt file from this receipt? The receipt record will remain.')) return;
+    if (removeFlag) removeFlag.value = '1';
+    box.querySelector('strong').textContent = 'Receipt file will be removed';
+    box.querySelector('span').textContent = 'Click Update Receipt to save this change.';
+    box.classList.add('remove-pending');
+  };
 }
 
 async function currentUser() {
@@ -197,35 +255,37 @@ function renderReceiptWorkspace() {
   document.getElementById('addReceiptBtn')?.addEventListener('click', () => openReceiptModal());
   tourReceiptWrap.querySelectorAll('[data-edit-receipt]').forEach(btn => btn.addEventListener('click', () => openReceiptModal(receiptsCache.find(r => r.id === btn.dataset.editReceipt))));
   tourReceiptWrap.querySelectorAll('[data-delete-receipt]').forEach(btn => btn.addEventListener('click', () => deleteReceipt(btn.dataset.deleteReceipt)));
+  tourReceiptWrap.querySelectorAll('[data-view-receipt-file]').forEach(btn => btn.addEventListener('click', () => viewReceiptFile(btn.dataset.viewReceiptFile)));
 }
 
 function receiptTable(scope) {
   const rows = receiptsByScope(scope);
   if (!rows.length) return `<div class="empty-state">No ${scopeLabel(scope)} receipts yet.</div>`;
-  return `<div class="receipt-card-table">${rows.map(r => {
+  return `<div class="receipt-card-table compact-receipt-list">${rows.map(r => {
     const attachedClass = hasReceiptFile(r) ? 'has-attachment' : '';
-    return `<article class="desktop-receipt-card ${attachedClass}">
-      <div class="desktop-receipt-main">
+    return `<article class="desktop-receipt-card compact ${attachedClass}">
+      <div class="desktop-receipt-left">
         <div class="desktop-receipt-title">
           <strong>${hasReceiptFile(r) ? '📎 ' : ''}${esc(r.customer || receiptTypeName(r) || scopeLabel(scope) + ' Receipt')}</strong>
           <span>${esc(receiptTypeName(r) || 'No type selected')}</span>
         </div>
+        <div class="desktop-receipt-meta-line">
+          <span><b>Date:</b> ${dt(r.receipt_date) || 'No date'}</span>
+          <span><b>Cycle:</b> ${cycleLabelForReceipt(r)}</span>
+          <span><b>File:</b> ${receiptFileHtml(r, true)}</span>
+          <span><b>Notes:</b> ${esc(r.notes || 'No notes')}</span>
+        </div>
+      </div>
+      <div class="desktop-receipt-right">
         <div class="desktop-receipt-amount">${money(r.amount)}</div>
-      </div>
-      <div class="desktop-receipt-details">
-        <div><span>Date</span><strong>${dt(r.receipt_date) || 'No date'}</strong></div>
-        <div><span>Cycle</span><strong>${cycleLabelForReceipt(r)}</strong></div>
-        <div><span>File</span><strong>${receiptFileHtml(r)}</strong></div>
-        <div><span>Notes</span><strong>${esc(r.notes || 'No notes')}</strong></div>
-      </div>
-      <div class="desktop-receipt-actions">
-        <button class="btn small secondary" data-edit-receipt="${esc(r.id)}">Edit</button>
-        <button class="btn small danger" data-delete-receipt="${esc(r.id)}" ${isReadOnlyViewAs() ? 'disabled' : ''}>Delete</button>
+        <div class="desktop-receipt-actions">
+          <button class="btn small secondary" data-edit-receipt="${esc(r.id)}">Edit</button>
+          <button class="btn small danger" data-delete-receipt="${esc(r.id)}" ${isReadOnlyViewAs() ? 'disabled' : ''}>Delete</button>
+        </div>
       </div>
     </article>`;
   }).join('')}</div>`;
 }
-
 function setScope(scope) {
   currentScope = scope;
   receipt_scope.value = scope;
@@ -265,6 +325,7 @@ function openReceiptModal(receipt = null) {
     amount.value = receipt.amount || '';
     notes.value = receipt.notes || '';
   }
+  showExistingAttachment(receipt);
   receiptModal.classList.add('open');
 }
 
@@ -302,9 +363,22 @@ async function saveReceipt(e) {
   try {
     saveReceiptBtn.disabled = true;
     saveReceiptBtn.textContent = 'Saving...';
-    const fileData = await uploadFile(user.id, receipt_file.files[0]);
-    const payload = { user_id:user.id, tour_id:selectedTour.id, scope:currentScope, cycle_id: currentScope === 'per_diem' ? cycle_id.value : null, customer:customer.value.trim(), type_id:type_id.value, receipt_date:receipt_date.value, amount:Number(amount.value), notes:notes.value.trim() || null, ...fileData };
     const id = receipt_id_edit.value;
+    const originalReceipt = id ? receiptsCache.find(x => x.id === id) : null;
+    const removeExistingFile = document.getElementById('remove_receipt_file')?.value === '1';
+    const newFile = receipt_file.files[0];
+    const fileData = await uploadFile(user.id, newFile);
+    const payload = { user_id:user.id, tour_id:selectedTour.id, scope:currentScope, cycle_id: currentScope === 'per_diem' ? cycle_id.value : null, customer:customer.value.trim(), type_id:type_id.value, receipt_date:receipt_date.value, amount:Number(amount.value), notes:notes.value.trim() || null, ...fileData };
+    if (removeExistingFile && !newFile) {
+      payload.file_bucket = null;
+      payload.file_path = null;
+      payload.file_name = null;
+      payload.file_mime_type = null;
+      payload.file_size_bytes = null;
+    }
+    if ((removeExistingFile || newFile) && originalReceipt?.file_bucket && originalReceipt?.file_path) {
+      window.usafSupabase.storage.from(originalReceipt.file_bucket).remove([originalReceipt.file_path]).catch(err => console.warn('Receipt file remove warning', err));
+    }
     const result = id ? await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', id).eq('user_id', user.id) : await window.usafSupabase.from('USAF_receipts').insert(payload);
     if (result.error) throw result.error;
     closeReceiptModalFn();
