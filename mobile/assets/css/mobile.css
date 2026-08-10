@@ -82,3 +82,23 @@ textarea { min-height: 92px; resize: vertical; }
 .mobile-helpdesk-nav-badge{margin-left:auto;min-width:20px;height:20px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}.mobile-helpdesk-nav-badge[hidden]{display:none!important}
 @media (min-width: 760px) { .mobile-shell { max-width: 440px; margin: 0 auto; box-shadow: 0 0 0 1px #d9e2ef; } }
 @media (max-width: 380px) { .detail-actions.three, .form-two, .mobile-kpi-grid, .summary-grid.compact { grid-template-columns: 1fr; } }
+
+/* Mobile dashboard compact update v101 */
+body[data-page="index"] .mobile-hero { display: none; }
+body[data-page="index"] .mobile-main { padding-top: 12px; }
+body[data-page="index"] .mobile-content { gap: 9px; }
+body[data-page="index"] .welcome-card { padding: 12px 14px; border-radius: 18px; gap: 2px; }
+body[data-page="index"] .welcome-card span { font-size: 10px; }
+body[data-page="index"] .welcome-card strong { font-size: 20px; }
+body[data-page="index"] .welcome-card small { font-size: 11px; }
+body[data-page="index"] .mobile-kpi-grid { gap: 9px; }
+body[data-page="index"] .kpi-card { min-height: 72px; padding: 10px 8px; border-radius: 18px; gap: 2px; }
+body[data-page="index"] .kpi-card span { font-size: 10px; letter-spacing: .08em; }
+body[data-page="index"] .kpi-card strong { font-size: 20px; line-height: 1; }
+body[data-page="index"] .kpi-card small { font-size: 10px; line-height: 1.15; }
+body[data-page="index"] .section-title { margin-top: 5px; font-size: 12px; }
+body[data-page="index"] .action-grid { gap: 9px; }
+body[data-page="index"] .action-card { padding: 12px; border-radius: 18px; grid-template-columns: 42px 1fr auto; }
+body[data-page="index"] .action-icon { width: 42px; height: 42px; border-radius: 14px; font-size: 20px; }
+body[data-page="index"] .action-card strong { font-size: 15px; margin-bottom: 2px; }
+body[data-page="index"] .action-card span { font-size: 12px; }
