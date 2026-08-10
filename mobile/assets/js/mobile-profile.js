@@ -1,4 +1,4 @@
-// Mobile profile view and edit v100
+// Mobile profile view and edit v102 - update only, no upsert
 window.MobileProfile = (() => {
   const M = window.MobileShell;
   async function loadProfile(){
@@ -20,9 +20,25 @@ window.MobileProfile = (() => {
   }
   async function saveProfile(e){
     e.preventDefault();
-    const payload = { id:M.getUser().id, display_name:document.getElementById('display_name').value.trim() || null, email:document.getElementById('profile_email').value.trim() || M.getUser().email || null, rank:document.getElementById('rank').value.trim() || null, unit:document.getElementById('unit').value.trim() || null, duty_station:document.getElementById('duty_station').value.trim() || null };
-    const { error } = await M.supa().from('USAF_profiles').upsert(payload);
-    if (error) return alert('Profile save failed: ' + error.message);
+    const payload = {
+      display_name:document.getElementById('display_name').value.trim() || null,
+      email:document.getElementById('profile_email').value.trim() || M.getUser().email || null,
+      rank:document.getElementById('rank').value.trim() || null,
+      unit:document.getElementById('unit').value.trim() || null,
+      duty_station:document.getElementById('duty_station').value.trim() || null
+    };
+
+    // Use UPDATE only. Upsert can try to INSERT and trigger RLS failures on USAF_profiles.
+    const result = await M.supa()
+      .from('USAF_profiles')
+      .update(payload)
+      .eq('id', M.getUser().id)
+      .select('id')
+      .maybeSingle();
+
+    if (result.error) return alert('Profile save failed: ' + result.error.message);
+    if (!result.data) return alert('Profile save failed: your profile row was not found. Ask an Admin to verify your USAF_profiles record exists.');
+
     alert('Profile saved.');
     await renderProfile();
   }
