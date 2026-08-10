@@ -1,4 +1,4 @@
-// Help Desk mobile add-on v85
+// Help Desk mobile add-on v100
 // Adds Help Desk to the mobile navigation list. Does not create a floating ? button.
 (function(){
   const statusStyle=document.createElement('style'); statusStyle.textContent='.mobile-ticket-filter{display:flex;gap:8px;align-items:center;margin:8px 0 12px;font-weight:800;color:#334155}.mobile-ticket-filter select{flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:8px}.mobile-ticket.status-open,.mobile-ticket.status-user_replied{border-left:5px solid #1d4ed8;background:#eff6ff}.mobile-ticket.status-admin_replied{border-left:5px solid #d97706;background:#fff7ed}.mobile-ticket.status-resolved,.mobile-ticket.status-closed{border-left:5px solid #15803d;background:#f0fdf4}'; document.head.appendChild(statusStyle);
@@ -38,14 +38,18 @@
     .mobile-helpdesk-sheet{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.62);display:flex;align-items:flex-end;justify-content:center;padding:12px}.mobile-helpdesk-card{width:100%;max-width:560px;max-height:88vh;overflow:auto;background:#fff;border-radius:18px 18px 12px 12px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);color:#0f172a}.mobile-helpdesk-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.mobile-helpdesk-card header button{border:0;background:#e5e7eb;border-radius:10px;font-size:1.3rem;width:36px;height:36px}.mobile-helpdesk-card label{display:block;font-weight:800;margin:12px 0 6px}.mobile-helpdesk-card input,.mobile-helpdesk-card select,.mobile-helpdesk-card textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:12px;padding:10px;font:inherit;background:white;color:#0f172a}.mobile-helpdesk-card textarea{min-height:110px;resize:vertical}.mobile-ticket{width:100%;text-align:left;border:1px solid #dbe3ef;background:#f8fafc;border-radius:14px;padding:12px;margin:8px 0;color:#0f172a}.mobile-ticket b,.mobile-ticket span,.mobile-ticket small{display:block;margin:2px 0}.mobile-help-msg{border-left:4px solid #1d4ed8;background:#f8fafc;border-radius:10px;padding:10px;margin:10px 0}.mobile-help-msg p{margin:6px 0 0;white-space:pre-wrap}.mobile-helpdesk-success{text-align:center;background:#f8fafc;border:1px solid #dbe3ef;border-radius:16px;padding:18px}.mobile-helpdesk-success-icon{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#15803d;color:#fff;font-weight:900;font-size:22px}.mobile-helpdesk-nav-badge{margin-left:auto;min-width:20px;height:20px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}.mobile-helpdesk-nav-badge[hidden]{display:none!important}.muted{color:#64748b}`; document.head.appendChild(s);}
   function sheet(html){document.querySelector('.mobile-helpdesk-sheet')?.remove(); const el=document.createElement('div'); el.className='mobile-helpdesk-sheet'; el.innerHTML=html; document.body.appendChild(el); el.querySelector('[data-close]')?.addEventListener('click',()=>el.remove()); el.addEventListener('click',e=>{if(e.target===el)el.remove();}); return el;}
   function addNav(){
-    if(document.querySelector('[data-mobile-helpdesk-open]')) return;
-    const nav=document.querySelector('#mobileDrawer nav')||document.querySelector('#mobileDrawer .drawer-nav')||document.querySelector('.mobile-drawer nav')||document.querySelector('nav');
-    if(!nav) return;
-    const a=document.createElement('a');
-    a.href='#'; a.className='nav-link mobile-helpdesk-nav-link'; a.setAttribute('data-mobile-helpdesk-open','');
-    a.innerHTML='<span class="nav-icon">?</span><span>Help Desk</span><span class="mobile-helpdesk-nav-badge" data-mobile-helpdesk-badge hidden>0</span>';
-    a.addEventListener('click',e=>{e.preventDefault(); openHelpDesk();});
-    nav.appendChild(a);
+    document.querySelectorAll('[data-mobile-helpdesk-open]').forEach(a=>{
+      if(a.dataset.helpdeskBound) return;
+      a.dataset.helpdeskBound='true';
+      a.addEventListener('click',e=>{e.preventDefault(); openHelpDesk();});
+      if(!a.querySelector('[data-mobile-helpdesk-badge]')){
+        const badge=document.createElement('span');
+        badge.className='mobile-helpdesk-nav-badge';
+        badge.setAttribute('data-mobile-helpdesk-badge','');
+        badge.hidden=true;
+        a.appendChild(badge);
+      }
+    });
   }
   async function openHelpDesk(){
     const u=await currentUser(); if(!u) return;

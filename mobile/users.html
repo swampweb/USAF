@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="assets/css/mobile.css?v=80">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=100">
 </head>
 <body data-page="users">
   <div class="mobile-shell">
@@ -19,16 +19,7 @@
     </header>
     <aside class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
       <div class="drawer-head"><strong>Menu</strong><button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button></div>
-      <nav class="drawer-nav">
-        <a href="index.html">Dashboard</a>
-        <a href="tours.html">Tours</a>
-        <a href="receipts.html">Receipts</a>
-        <a href="vouchers.html">Voucher Packages</a>
-        <a href="profile.html">My Profile</a>
-        <a href="users.html">User Management</a>
-        <a href="../dashboard.html">Desktop View</a>
-        <button type="button" id="logoutButton">Logout</button>
-      </nav>
+      <nav class="drawer-nav" id="drawerNav"><a href="index.html">Dashboard</a><a href="tours.html">Tours</a><a href="receipts.html">Receipts</a><a href="vouchers.html">Voucher Packages</a><a href="profile.html">My Profile</a><div class="drawer-section-title">Admin</div><a href="users.html">User Management</a><a href="index.html">Help Desk</a><button type="button" id="logoutButton">Logout</button></nav>
     </aside>
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <main class="mobile-main">

@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="../favicon.ico">
   <link rel="apple-touch-icon" href="../assets/img/orders-travel-tracker-icon.png">
   <link rel="manifest" href="../site.webmanifest">
-  <link rel="stylesheet" href="assets/css/mobile.css?v=57">
+  <link rel="stylesheet" href="assets/css/mobile.css?v=100">
 </head>
 <body data-page="cycles">
   <div class="mobile-shell">
@@ -26,13 +26,13 @@
         <strong>Menu</strong>
         <button class="icon-button" type="button" id="closeMenuButton" aria-label="Close menu">×</button>
       </div>
-      <nav class="drawer-nav">
+      <nav class="drawer-nav" id="drawerNav">
         <a href="index.html">Dashboard</a>
         <a href="tours.html">Tours</a>
         <a href="receipts.html">Receipts</a>
         <a href="vouchers.html">Voucher Packages</a>
         <a href="profile.html">My Profile</a>
-        <a href="../dashboard.html" id="desktopViewLink">Desktop View</a>
+        <a href="#" data-mobile-helpdesk-open>Help Desk</a>
         <button type="button" id="logoutButton">Logout</button>
       </nav>
     </aside>
@@ -41,7 +41,7 @@
     <main class="mobile-main">
       <section class="mobile-hero">
         <h1>Cycles</h1>
-        <p>Cycles are managed inside each tour.</p>
+        <p>Cycles are managed inside Tours just like the desktop workflow.</p>
       </section>
       <section id="mobileContent" class="mobile-content">
         <div class="loading-card">Loading...</div>
@@ -50,7 +50,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=57"></script>
-  <script src="assets/js/mobile.js?v=57"></script>
+  <script src="../assets/js/config.js?v=100"></script>
+  <script src="assets/js/mobile.js?v=100"></script>
 </body>
 </html>

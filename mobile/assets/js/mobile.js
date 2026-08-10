@@ -1,18 +1,18 @@
-// Mobile split loader v85
+// Mobile split loader v100
 // Keeps mobile page logic split across dedicated files.
-// New mobile features must be separate mobile-*.js files and listed here.
+// IMPORTANT: do not merge feature logic into this loader.
 (() => {
   const rootPrefix = location.pathname.includes('/USAF/') ? '/USAF/' : '/';
   const scripts = [
-    rootPrefix + 'assets/js/effective-user.js?v=79',
-    'mobile-shell.js',
-    'mobile-dashboard.js',
-    'mobile-cycles.js',
-    'mobile-tours.js',
-    'mobile-receipts.js',
-    'mobile-vouchers.js',
-    'mobile-profile.js',
-    'mobile-helpdesk.js?v=85'
+    rootPrefix + 'assets/js/effective-user.js?v=100',
+    'mobile-shell.js?v=100',
+    'mobile-dashboard.js?v=100',
+    'mobile-cycles.js?v=100',
+    'mobile-tours.js?v=100',
+    'mobile-receipts.js?v=100',
+    'mobile-vouchers.js?v=100',
+    'mobile-profile.js?v=100',
+    'mobile-helpdesk.js?v=100'
   ];
   const current = document.currentScript;
   const baseUrl = current && current.src ? current.src.substring(0, current.src.lastIndexOf('/') + 1) : './';
@@ -39,7 +39,7 @@
     } catch (err) {
       console.error(err);
       const content = document.getElementById('mobileContent');
-      if (content) content.innerHTML = `Mobile page failed to load.\n${String(err.message || err)}`;
+      if (content) content.innerHTML = `<div class="notice"><strong>Mobile page failed to load.</strong><br>${String(err.message || err)}</div>`;
     }
   }
   boot();
