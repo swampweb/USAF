@@ -654,3 +654,38 @@ button[data-view-receipt] { display: none !important; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Desktop Tour KPI Compact Centered Layout v22 */
+.receipt-tour-summary-strip {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.receipt-summary-tile {
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 3px;
+}
+.receipt-summary-tile span {
+  font-size: 10px;
+  letter-spacing: .055em;
+  text-align: center;
+}
+.receipt-summary-tile strong {
+  font-size: 22px;
+  text-align: center;
+}
+.receipt-summary-tile small {
+  font-size: 11px;
+  text-align: center;
+}
+@media (min-width: 1201px) {
+  .receipt-tour-summary-strip {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+  }
+}
