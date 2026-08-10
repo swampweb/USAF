@@ -24,7 +24,6 @@ const USER_LINKS = [
   { label: "Dashboard", href: "dashboard.html", icon: "home" },
   { label: "Tours", href: "tours.html", icon: "folder" },
   { label: "Receipts", href: "receipts.html", icon: "receipt" },
-  { label: "Receipts", href: "other-receipts.html", icon: "folder" },
   { label: "Voucher / Downloads", href: "voucher-downloads.html", icon: "download" },
   { label: "Reports", href: "reports.html", icon: "bar-chart" }
 ];
@@ -107,7 +106,7 @@ async function renderLayout(activeTitle) {
         </div>
       </div>
       <nav>${userLinksHtml}${adminLinksHtml}</nav>
-      <div class="sidebar-footer">USAF Receipts Tracker</div>
+      <div class="sidebar-footer">USAF Per Diem Tracker</div>
     </aside>
     <main class="main">
       <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${assetWithCache(settings.dashboard_banner_path) || prefix + 'assets/img/default-banner.svg'}')">
@@ -133,7 +132,3 @@ function fmtDate(dateValue) {
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
-
-
-// v74: refresh View as User banner/read-only state after layout renders.
-setTimeout(() => { if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi(); }, 0);
