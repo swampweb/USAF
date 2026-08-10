@@ -1,4 +1,4 @@
-// Receipts desktop workflow v18
+// Receipts desktop workflow v19
 // Consolidates Per Diem and Other receipts on one Receipts page.
 // Limits Tours, Cycles, and Receipts to the signed-in/effective user.
 // Adds date validation and receipt delete support.
@@ -16,6 +16,44 @@ function activeStatus(status) { return ['active','planned'].includes(String(stat
 function scopeLabel(scope) { return scope === 'per_diem' ? 'Per Diem' : 'Other'; }
 function receiptsByScope(scope) { return receiptsCache.filter(r => (r.scope || 'per_diem') === scope); }
 function receiptTotal(scope) { return receiptsByScope(scope).reduce((sum, r) => sum + Number(r.amount || 0), 0); }
+function receiptCountAndTotal(rows) {
+  const list = rows || [];
+  return `${list.length} • ${money(list.reduce((sum, r) => sum + Number(r.amount || 0), 0))}`;
+}
+function hasReceiptFile(r) {
+  return !!(
+    r.file_path || r.file_name || r.file_bucket || r.receipt_file_path || r.receipt_file_url ||
+    r.receipt_url || r.file_url || r.attachment_url || r.attachment_path || r.storage_path ||
+    r.filename || r.original_filename
+  );
+}
+function receiptFileLabel(r) {
+  const label = r.file_name || r.receipt_filename || r.filename || r.original_filename;
+  if (label) return label;
+  const path = r.file_path || r.receipt_file_path || r.attachment_path || r.storage_path || r.receipt_file_url || r.receipt_url || r.file_url || r.attachment_url;
+  if (!path) return '';
+  return String(path).split('?')[0].split('/').filter(Boolean).pop() || 'Receipt attached';
+}
+function fileSizeLabel(bytes) {
+  const size = Number(bytes || 0);
+  if (!size) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+function receiptFileHtml(r, compact = false) {
+  if (!hasReceiptFile(r)) return compact ? '<span class="muted">No file</span>' : '<span class="receipt-file-empty">No file attached</span>';
+  const size = fileSizeLabel(r.file_size_bytes);
+  const label = receiptFileLabel(r) || 'Receipt attached';
+  return `<span class="receipt-file-pill" title="${esc(label)}${size ? ' • ' + esc(size) : ''}">📎 <span>${esc(label)}</span>${size ? `<small>${esc(size)}</small>` : ''}</span>`;
+}
+function cycleLabelForReceipt(r) {
+  const c = cyclesCache.find(x => x.id === r.cycle_id);
+  return c ? `${dt(c.start_date)} - ${dt(c.end_date)}` : 'No cycle linked';
+}
+function receiptTypeName(r) {
+  return r.USAF_receipt_types?.name || r.type_name || r.receipt_type || '';
+}
 
 async function currentUser() {
   if (window.USAFEffectiveUser && typeof window.USAFEffectiveUser.getEffectiveUser === 'function') return window.USAFEffectiveUser.getEffectiveUser();
@@ -70,14 +108,20 @@ async function getReceiptCountsForTour(tourId) {
   const user = await currentUser();
   const { data } = await window.usafSupabase
     .from('USAF_receipts')
-    .select('scope,amount')
+    .select('scope,amount,file_path,file_name,file_bucket,file_size_bytes')
     .eq('user_id', user.id)
     .eq('tour_id', tourId);
   const rows = data || [];
+  const perDiemRows = rows.filter(r => r.scope === 'per_diem');
+  const otherRows = rows.filter(r => r.scope === 'other');
   return {
-    perDiem: rows.filter(r => r.scope === 'per_diem').length,
-    other: rows.filter(r => r.scope === 'other').length,
-    total: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0)
+    perDiem: perDiemRows.length,
+    perDiemTotal: perDiemRows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    other: otherRows.length,
+    otherTotal: otherRows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    all: rows.length,
+    total: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    attached: rows.filter(hasReceiptFile).length
   };
 }
 
@@ -89,10 +133,11 @@ async function renderTourCards() {
     const counts = await getReceiptCountsForTour(t.id);
     cards.push(`<button class="receipt-tour-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${esc(t.id)}">
       <div><strong>${esc(t.tour_name || t.location || 'Tour')}</strong><span>${esc(t.location || '')}</span><small>${dt(t.orders_start_date)} - ${dt(t.orders_end_date)}</small></div>
-      <div class="receipt-tour-counts">
-        <div class="receipt-count-pill"><span>Per Diem</span><strong>${counts.perDiem}</strong></div>
-        <div class="receipt-count-pill"><span>Other</span><strong>${counts.other}</strong></div>
-        <div class="receipt-count-pill"><span>Total</span><strong>${money(counts.total)}</strong></div>
+      <div class="receipt-tour-counts receipt-tour-counts-clean">
+        <div class="receipt-count-pill"><span>Per Diem</span><strong>${counts.perDiem} • ${money(counts.perDiemTotal)}</strong></div>
+        <div class="receipt-count-pill"><span>Other</span><strong>${counts.other} • ${money(counts.otherTotal)}</strong></div>
+        <div class="receipt-count-pill"><span>All Receipts</span><strong>${counts.all} • ${money(counts.total)}</strong></div>
+        <div class="receipt-count-pill attachment-count"><span>Files</span><strong>📎 ${counts.attached}</strong></div>
       </div>
     </button>`);
   }
@@ -140,10 +185,11 @@ function renderReceiptWorkspace() {
   if (!selectedTour) return;
   tourReceiptWrap.innerHTML = `<div class="card">
     <div class="toolbar"><div><h2>${esc(selectedTour.tour_name || 'Tour Receipts')}</h2><p class="muted">${dt(selectedTour.orders_start_date)} - ${dt(selectedTour.orders_end_date)}</p></div><button class="btn" id="addReceiptBtn" ${isReadOnlyViewAs() ? 'disabled' : ''}>+ Add Receipt</button></div>
-    <div class="summary-grid">
-      <div class="summary-card"><span>Per Diem Receipts</span><strong>${receiptsByScope('per_diem').length}</strong><small>${money(receiptTotal('per_diem'))}</small></div>
-      <div class="summary-card"><span>Other Receipts</span><strong>${receiptsByScope('other').length}</strong><small>${money(receiptTotal('other'))}</small></div>
-      <div class="summary-card"><span>All Receipts</span><strong>${receiptsCache.length}</strong><small>${money(receiptTotal('per_diem') + receiptTotal('other'))}</small></div>
+    <div class="summary-grid receipt-summary-clean">
+      <div class="summary-card"><span>Per Diem Receipts</span><strong>${receiptCountAndTotal(receiptsByScope('per_diem'))}</strong><small>Count and total</small></div>
+      <div class="summary-card"><span>Other Receipts</span><strong>${receiptCountAndTotal(receiptsByScope('other'))}</strong><small>Count and total</small></div>
+      <div class="summary-card"><span>All Receipts</span><strong>${receiptCountAndTotal(receiptsCache)}</strong><small>Count and total</small></div>
+      <div class="summary-card"><span>Files Attached</span><strong>📎 ${receiptsCache.filter(hasReceiptFile).length}</strong><small>Receipt attachments</small></div>
     </div>
     <h3>Per Diem Receipts</h3>${receiptTable('per_diem')}
     <h3>Other Receipts</h3>${receiptTable('other')}
@@ -156,10 +202,28 @@ function renderReceiptWorkspace() {
 function receiptTable(scope) {
   const rows = receiptsByScope(scope);
   if (!rows.length) return `<div class="empty-state">No ${scopeLabel(scope)} receipts yet.</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Cycle</th><th>Amount</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${rows.map(r => {
-    const c = cyclesCache.find(x => x.id === r.cycle_id);
-    return `<tr><td>${dt(r.receipt_date)}</td><td>${esc(r.customer || '')}</td><td>${esc(r.USAF_receipt_types?.name || r.type_name || '')}</td><td>${c ? `${dt(c.start_date)} - ${dt(c.end_date)}` : ''}</td><td>${money(r.amount)}</td><td>${esc(r.notes || '')}</td><td><button class="btn small secondary" data-edit-receipt="${esc(r.id)}">Edit</button> <button class="btn small danger" data-delete-receipt="${esc(r.id)}" ${isReadOnlyViewAs() ? 'disabled' : ''}>Delete</button></td></tr>`;
-  }).join('')}</tbody></table></div>`;
+  return `<div class="receipt-card-table">${rows.map(r => {
+    const attachedClass = hasReceiptFile(r) ? 'has-attachment' : '';
+    return `<article class="desktop-receipt-card ${attachedClass}">
+      <div class="desktop-receipt-main">
+        <div class="desktop-receipt-title">
+          <strong>${hasReceiptFile(r) ? '📎 ' : ''}${esc(r.customer || receiptTypeName(r) || scopeLabel(scope) + ' Receipt')}</strong>
+          <span>${esc(receiptTypeName(r) || 'No type selected')}</span>
+        </div>
+        <div class="desktop-receipt-amount">${money(r.amount)}</div>
+      </div>
+      <div class="desktop-receipt-details">
+        <div><span>Date</span><strong>${dt(r.receipt_date) || 'No date'}</strong></div>
+        <div><span>Cycle</span><strong>${cycleLabelForReceipt(r)}</strong></div>
+        <div><span>File</span><strong>${receiptFileHtml(r)}</strong></div>
+        <div><span>Notes</span><strong>${esc(r.notes || 'No notes')}</strong></div>
+      </div>
+      <div class="desktop-receipt-actions">
+        <button class="btn small secondary" data-edit-receipt="${esc(r.id)}">Edit</button>
+        <button class="btn small danger" data-delete-receipt="${esc(r.id)}" ${isReadOnlyViewAs() ? 'disabled' : ''}>Delete</button>
+      </div>
+    </article>`;
+  }).join('')}</div>`;
 }
 
 function setScope(scope) {

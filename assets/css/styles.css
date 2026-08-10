@@ -400,3 +400,142 @@ button[data-view-receipt] { display: none !important; }
   object-fit: contain;
   display: block;
 }
+
+
+/* Desktop Receipt Card Cleanup v19 */
+.receipt-tour-counts.receipt-tour-counts-clean {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.receipt-tour-counts-clean .receipt-count-pill {
+  text-align: left;
+  padding: 10px;
+}
+.receipt-tour-counts-clean .receipt-count-pill strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.receipt-tour-counts-clean .attachment-count strong {
+  color: var(--primary);
+}
+.receipt-summary-clean {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.receipt-summary-clean .summary-card strong {
+  font-size: 22px;
+  white-space: nowrap;
+}
+.receipt-card-table {
+  display: grid;
+  gap: 10px;
+}
+.desktop-receipt-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+.desktop-receipt-card.has-attachment {
+  border-color: #bfdbfe;
+  background: linear-gradient(90deg, rgba(239,248,255,.9), #fff);
+}
+.desktop-receipt-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.desktop-receipt-title strong {
+  display: block;
+  font-size: 16px;
+}
+.desktop-receipt-title span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+  font-weight: 800;
+}
+.desktop-receipt-amount {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.desktop-receipt-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.desktop-receipt-details > div {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 9px;
+  min-width: 0;
+}
+.desktop-receipt-details span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+.desktop-receipt-details strong {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.desktop-receipt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.receipt-file-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-weight: 900;
+  max-width: 100%;
+}
+.receipt-file-pill span {
+  color: var(--primary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.receipt-file-pill small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.receipt-file-empty {
+  color: var(--muted);
+  font-weight: 800;
+}
+@media (max-width: 1200px) {
+  .receipt-summary-clean,
+  .desktop-receipt-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .receipt-tour-counts.receipt-tour-counts-clean,
+  .receipt-summary-clean,
+  .desktop-receipt-details {
+    grid-template-columns: 1fr;
+  }
+  .desktop-receipt-main {
+    flex-direction: column;
+  }
+}
