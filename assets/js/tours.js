@@ -388,7 +388,8 @@ function renderTourDetail() {
   editTourBtn?.addEventListener('click', () => openTourModal(t));
   toggleTourBtn?.addEventListener('click', toggleTourActive);
   deleteTourBtn?.addEventListener('click', deleteTour);
-  archiveTourBtn?.addEventListener('click', () => {
+  const archiveBtn = document.getElementById('archiveTourBtn');
+  archiveBtn?.addEventListener('click', () => {
     if (String(selectedTour?.archive_status || '').toLowerCase() === 'package_created') confirmUserTourArchive(selectedTour.id);
     else createUserTourArchivePackage(selectedTour.id);
   });
