@@ -1,1 +1,123 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Audit Log</title><link rel="stylesheet" href="../assets/css/styles.css?v=5"></head><body style="visibility:hidden"><div id="app"><div class="card"><h2>Audit Log</h2><div class="table-wrap"><table><thead><tr><th>Date</th><th>User</th><th>Action</th><th>Entity</th></tr></thead><tbody id="rows"></tbody></table></div></div></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js?v=5"></script><script src="../assets/js/supabaseClient.js?v=5"></script><script src="../assets/js/auth.js?v=5"></script><script src="../assets/js/layout.js?v=5"></script><script>async function init(){await requireAdmin();await renderLayout('Admin - Audit Log');const{data}=await window.usafSupabase.from('USAF_audit_log').select('*').order('created_at',{ascending:false});rows.innerHTML=(data||[]).map(a=>`<tr><td>${new Date(a.created_at).toLocaleString()}</td><td>${a.user_id||''}</td><td>${a.action}</td><td>${a.entity_name||''}</td></tr>`).join('')||'<tr><td colspan="4">No audit records yet.</td></tr>'}init();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Audit Log</title>
+  <link rel="stylesheet" href="../assets/css/styles.css?v=103">
+</head>
+<body style="visibility:hidden">
+  <div id="app">
+    <section class="audit-dashboard" aria-label="Audit Log Dashboard">
+      <div class="audit-header-card">
+        <div>
+          <span class="audit-eyebrow">Admin Control</span>
+          <h2>Audit Log</h2>
+          <p>Review system activity, user changes, record updates, downloads, and admin actions.</p>
+        </div>
+        <div class="audit-header-actions">
+          <button class="btn secondary" type="button" id="refreshAuditBtn">Refresh</button>
+          <button class="btn" type="button" id="exportAuditBtn">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="audit-kpi-grid">
+        <div class="audit-kpi-card kpi-total">
+          <span>Total Events</span>
+          <strong id="auditTotalCount">0</strong>
+          <small>Loaded records</small>
+        </div>
+        <div class="audit-kpi-card kpi-today">
+          <span>Today</span>
+          <strong id="auditTodayCount">0</strong>
+          <small>Events today</small>
+        </div>
+        <div class="audit-kpi-card kpi-critical">
+          <span>Critical</span>
+          <strong id="auditCriticalCount">0</strong>
+          <small>High risk changes</small>
+        </div>
+        <div class="audit-kpi-card kpi-admin">
+          <span>Admin Actions</span>
+          <strong id="auditAdminCount">0</strong>
+          <small>Privileged activity</small>
+        </div>
+      </div>
+
+      <div class="audit-filter-card">
+        <label>Date From
+          <input type="date" id="auditDateFrom">
+        </label>
+        <label>Date To
+          <input type="date" id="auditDateTo">
+        </label>
+        <label>User
+          <select id="auditUserFilter">
+            <option value="">All users</option>
+          </select>
+        </label>
+        <label>Module
+          <select id="auditModuleFilter">
+            <option value="">All modules</option>
+          </select>
+        </label>
+        <label>Severity
+          <select id="auditSeverityFilter">
+            <option value="">All severities</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+        <label>Search
+          <input type="search" id="auditSearch" placeholder="Search action, user, entity, details">
+        </label>
+      </div>
+
+      <div class="audit-workspace">
+        <div class="audit-table-card card">
+          <div class="audit-card-head">
+            <div>
+              <h3>Activity Events</h3>
+              <p id="auditResultSummary" class="muted">Loading audit records...</p>
+            </div>
+          </div>
+          <div class="table-wrap audit-table-wrap">
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th>Date / Time</th>
+                  <th>Actor</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                  <th>Module</th>
+                  <th>Entity</th>
+                  <th>Severity</th>
+                </tr>
+              </thead>
+              <tbody id="auditRows">
+                <tr><td colspan="7">Loading audit records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="audit-detail-card card" id="auditDetailPanel">
+          <div class="audit-detail-empty">
+            <div class="audit-detail-icon">🛡️</div>
+            <h3>Event Details</h3>
+            <p>Select an audit record to review before/after values, related record information, and technical metadata.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/config.js?v=103"></script>
+  <script src="../assets/js/supabaseClient.js?v=103"></script>
+  <script src="../assets/js/auth.js?v=103"></script>
+  <script src="../assets/js/layout.js?v=103"></script>
+  <script src="../assets/js/audit-log.js?v=103"></script>
+</body>
+</html>
