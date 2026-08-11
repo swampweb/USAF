@@ -119,6 +119,47 @@ async function currentUser() {
 }
 function isReadOnlyViewAs() { return !!(window.USAFEffectiveUser && window.USAFEffectiveUser.isViewAsActive && window.USAFEffectiveUser.isViewAsActive()); }
 
+
+async function logAuditEvent(action, moduleName, entityType, entityId, entityName, severity = 'info', details = {}, oldValues = {}, newValues = {}) {
+  try {
+    if (!window.usafSupabase || typeof window.usafSupabase.rpc !== 'function') return;
+    const { error } = await window.usafSupabase.rpc('log_audit_event', {
+      p_action: action,
+      p_module: moduleName,
+      p_entity_type: entityType,
+      p_entity_id: entityId ? String(entityId) : null,
+      p_entity_name: entityName || null,
+      p_severity: severity,
+      p_details: details || {},
+      p_old_values: oldValues || {},
+      p_new_values: newValues || {}
+    });
+    if (error) console.warn('Audit log write failed', error);
+  } catch (err) {
+    console.warn('Audit log write failed', err);
+  }
+}
+
+function showThemeMessage(title, message, type = 'warning') {
+  document.querySelector('.theme-message-backdrop')?.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open theme-message-backdrop';
+  const icon = type === 'danger' ? '!' : type === 'success' ? '✓' : 'i';
+  modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="modal-body">
+      <div class="theme-message-icon ${type}">${icon}</div>
+      <h2 class="theme-message-title">${esc(title)}</h2>
+      <p class="theme-message-text">${esc(message)}</p>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-theme-message>OK</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-theme-message]')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+}
+
 async function initReceipts() {
   await renderLayout('Receipts');
   if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
@@ -307,8 +348,8 @@ function populateCycles(selected='') {
 }
 
 function openReceiptModal(receipt = null) {
-  if (isReadOnlyViewAs()) return alert('Read-only while viewing as another user.');
-  if (!selectedTour) return alert('Select a Tour first.');
+  if (isReadOnlyViewAs()) return showThemeMessage('Read-Only View', 'Read-only while viewing as another user.', 'warning');
+  if (!selectedTour) return showThemeMessage('Select a Tour', 'Select a Tour first.', 'warning');
   receiptForm.reset();
   receipt_id_edit.value = receipt?.id || '';
   tour_id.value = selectedTour.id;
@@ -334,11 +375,11 @@ function closeReceiptModalFn() { receiptModal.classList.remove('open'); }
 function validateReceiptDate() {
   const date = receipt_date.value;
   if (!date) return false;
-  if (selectedTour.orders_start_date && date < selectedTour.orders_start_date) { alert('Receipt date must be within the selected Tour date range.'); return false; }
-  if (selectedTour.orders_end_date && date > selectedTour.orders_end_date) { alert('Receipt date must be within the selected Tour date range.'); return false; }
+  if (selectedTour.orders_start_date && date < selectedTour.orders_start_date) { showThemeMessage('Receipt Date Outside Tour', 'Receipt date must be within the selected Tour date range.', 'warning'); return false; }
+  if (selectedTour.orders_end_date && date > selectedTour.orders_end_date) { showThemeMessage('Receipt Date Outside Tour', 'Receipt date must be within the selected Tour date range.', 'warning'); return false; }
   if (currentScope === 'per_diem' && cycle_id.value) {
     const c = cyclesCache.find(x => x.id === cycle_id.value);
-    if (c && (date < c.start_date || date > c.end_date)) { alert('Per Diem receipt date must be within the selected Cycle date range.'); return false; }
+    if (c && (date < c.start_date || date > c.end_date)) { showThemeMessage('Receipt Date Outside Cycle', 'Per Diem receipt date must be within the selected Cycle date range.', 'warning'); return false; }
   }
   return true;
 }
@@ -354,11 +395,11 @@ async function uploadFile(userId, file) {
 
 async function saveReceipt(e) {
   e.preventDefault();
-  if (isReadOnlyViewAs()) return alert('Read-only while viewing as another user.');
+  if (isReadOnlyViewAs()) return showThemeMessage('Read-Only View', 'Read-only while viewing as another user.', 'warning');
   const user = await currentUser();
-  if (!selectedTour) return alert('Select a Tour first.');
-  if (currentScope === 'per_diem' && !cycle_id.value) return alert('Select a Cycle for Per Diem receipts.');
-  if (!type_id.value) return alert('Select a Receipt Type.');
+  if (!selectedTour) return showThemeMessage('Select a Tour', 'Select a Tour first.', 'warning');
+  if (currentScope === 'per_diem' && !cycle_id.value) return showThemeMessage('Cycle Required', 'Select a Cycle for Per Diem receipts.', 'warning');
+  if (!type_id.value) return showThemeMessage('Receipt Type Required', 'Select a Receipt Type.', 'warning');
   if (!validateReceiptDate()) return;
   try {
     saveReceiptBtn.disabled = true;
@@ -381,22 +422,22 @@ async function saveReceipt(e) {
     }
     const result = id ? await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', id).eq('user_id', user.id).select().single() : await window.usafSupabase.from('USAF_receipts').insert(payload).select().single();
     if (result.error) throw result.error;
-    await logAuditEvent(id ? 'Receipt Updated' : 'Receipt Created', 'Receipts', 'Receipt', result.data?.id || id, payload.customer || scopeLabel(currentScope) + ' Receipt', id ? 'warning' : 'info', { tour_id: selectedTour.id, tour_name: selectedTour.tour_name, scope: currentScope, amount: payload.amount, file_changed: !!(newFile || removeExistingFile) }, originalReceipt || {}, result.data || payload);
+    if (typeof logAuditEvent === 'function') await logAuditEvent(id ? 'Receipt Updated' : 'Receipt Created', 'Receipts', 'Receipt', result.data?.id || id, payload.customer || scopeLabel(currentScope) + ' Receipt', id ? 'warning' : 'info', { tour_id: selectedTour.id, tour_name: selectedTour.tour_name, scope: currentScope, amount: payload.amount, file_changed: !!(newFile || removeExistingFile) }, originalReceipt || {}, result.data || payload);
     closeReceiptModalFn();
     await selectTour(selectedTour.id);
-  } catch (err) { alert(err.message || err); }
+  } catch (err) { showThemeMessage('Receipt Save Failed', err.message || String(err), 'danger'); }
   finally { saveReceiptBtn.disabled = false; saveReceiptBtn.textContent = receipt_id_edit.value ? 'Update Receipt' : 'Save Receipt'; }
 }
 
 async function deleteReceipt(id) {
-  if (isReadOnlyViewAs()) return alert('Read-only while viewing as another user.');
+  if (isReadOnlyViewAs()) return showThemeMessage('Read-Only View', 'Read-only while viewing as another user.', 'warning');
   const user = await currentUser();
   const r = receiptsCache.find(x => x.id === id);
   if (!confirm(`Delete receipt ${r?.customer || ''} ${r?.receipt_date || ''}? This cannot be undone.`)) return;
   const deletedReceipt = r ? { ...r } : {};
   const { error } = await window.usafSupabase.from('USAF_receipts').delete().eq('id', id).eq('user_id', user.id);
-  if (error) return alert('Receipt delete failed: ' + error.message);
-  await logAuditEvent('Receipt Deleted', 'Receipts', 'Receipt', id, r?.customer || r?.type_name || 'Receipt', 'critical', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name, amount: r?.amount, receipt_date: r?.receipt_date }, deletedReceipt, {});
+  if (error) return showThemeMessage('Receipt Delete Failed', error.message, 'danger');
+  if (typeof logAuditEvent === 'function') await logAuditEvent('Receipt Deleted', 'Receipts', 'Receipt', id, r?.customer || r?.type_name || 'Receipt', 'critical', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name, amount: r?.amount, receipt_date: r?.receipt_date }, deletedReceipt, {});
   await selectTour(selectedTour.id);
 }
 
