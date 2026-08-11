@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tour Archive Manager - Orders & Travel Tracker</title>
+  <link rel="stylesheet" href="../assets/css/styles.css?v=120">
+  <style>
+    .archive-page { display:grid; gap:16px; }
+    .archive-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
+    .archive-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+    .archive-tab { border:1px solid var(--line); background:#f8fafc; color:var(--text); border-radius:999px; padding:9px 14px; font-weight:900; cursor:pointer; }
+    .archive-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .archive-user-group { display:grid; gap:10px; margin-top:12px; }
+    .archive-user-heading { margin:10px 0 2px; color:var(--secondary); font-weight:900; font-size:16px; }
+    .archive-card { border:1px solid #bfd5ff; background:linear-gradient(90deg,#f4f9ff,#fff); border-radius:18px; padding:14px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; }
+    .archive-card h3 { margin:0 0 4px; font-size:17px; }
+    .archive-card .meta { display:flex; flex-wrap:wrap; gap:8px; color:var(--muted); font-size:12px; font-weight:800; }
+    .archive-pill { border:1px solid var(--line); background:#fff; border-radius:999px; padding:5px 9px; }
+    .archive-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .archive-danger-zone { border-color:#fecaca; background:#fff7f7; }
+    .archive-empty { border:1px dashed var(--line); background:#f8fafc; border-radius:18px; padding:18px; color:var(--muted); text-align:center; font-weight:800; }
+    .archive-message-backdrop { position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.58); }
+    .archive-message-modal { width:min(540px,100%); background:#fff; border:1px solid var(--line); border-radius:22px; padding:20px; box-shadow:0 28px 80px rgba(15,23,42,.26); }
+    .archive-message-icon { width:54px; height:54px; border-radius:18px; display:grid; place-items:center; color:#fff; background:linear-gradient(135deg,var(--primary),var(--secondary)); font-size:24px; font-weight:900; margin-bottom:12px; }
+    .archive-message-icon.danger { background:#b42318; }
+    .archive-message-panel { background:#f8fafc; border:1px solid var(--line); border-radius:14px; padding:12px; margin:12px 0; color:var(--text); font-weight:800; display:grid; gap:6px; }
+    @media (max-width:760px){ .archive-card { grid-template-columns:1fr; } .archive-actions { justify-content:flex-start; } }
+  </style>
+</head>
+<body style="visibility:hidden">
+  <div id="app">
+    <section class="archive-page">
+      <div class="audit-header-card">
+        <div>
+          <span class="audit-eyebrow">Admin Control</span>
+          <h2>Tour Archive Manager</h2>
+          <p>Archive inactive Tours into downloadable ZIP packages, then optionally purge archived records and receipt files.</p>
+        </div>
+        <div class="audit-header-actions">
+          <button class="btn secondary" type="button" id="refreshArchiveBtn">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card archive-toolbar">
+        <div>
+          <h3>Archive Workflow</h3>
+          <p class="muted">Step 1: Create Archive Package. Step 2: Confirm Archive after verifying the ZIP. Step 3: Purge only after archive is confirmed.</p>
+        </div>
+        <div class="archive-tabs">
+          <button class="archive-tab active" type="button" data-archive-tab="inactive">Inactive Tours</button>
+          <button class="archive-tab" type="button" data-archive-tab="archived">Archived / Purge</button>
+        </div>
+      </div>
+
+      <div id="archiveManagerContent" class="archive-content"></div>
+    </section>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/config.js?v=120"></script>
+  <script src="../assets/js/supabaseClient.js?v=120"></script>
+  <script src="../assets/js/auth.js?v=120"></script>
+  <script src="../assets/js/layout.js?v=120"></script>
+  <script src="../assets/js/archive-manager.js?v=120"></script>
+</body>
+</html>
