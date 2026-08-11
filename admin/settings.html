@@ -1,1 +1,196 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Settings</title><link rel="stylesheet" href="../assets/css/styles.css?v=5"></head><body style="visibility:hidden"><div id="app"><div class="card"><h2>Settings</h2><p>This page is reserved for application-wide settings.</p></div></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js?v=5"></script><script src="../assets/js/supabaseClient.js?v=5"></script><script src="../assets/js/auth.js?v=5"></script><script src="../assets/js/layout.js?v=5"></script><script>async function init(){await requireAdmin();await renderLayout('Admin - Settings')}init();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Settings - Orders & Travel Tracker</title>
+  <link rel="stylesheet" href="../assets/css/styles.css?v=112">
+</head>
+<body style="visibility:hidden">
+  <div id="app">
+    <section class="settings-page grid" aria-label="Admin Settings">
+      <div class="audit-header-card">
+        <div>
+          <span class="audit-eyebrow">Admin Control</span>
+          <h2>Settings</h2>
+          <p>Manage application behavior, footer text, defaults, and audit options without editing code.</p>
+        </div>
+        <div class="audit-header-actions">
+          <button class="btn secondary" type="button" id="reloadSettingsBtn">Reload</button>
+          <button class="btn" type="button" id="saveSettingsBtn">Save Settings</button>
+        </div>
+      </div>
+
+      <div id="settingsMessage" class="message" aria-live="polite"></div>
+
+      <div class="grid cols-2">
+        <section class="card">
+          <h3>General Settings</h3>
+          <div class="form-grid">
+            <label>System Name
+              <input id="settingSystemName" placeholder="Orders & Travel Tracker">
+            </label>
+            <label>System Tagline
+              <input id="settingSystemTagline" placeholder="Track receipts, cycles, vouchers, and reports.">
+            </label>
+            <label>Maintenance Mode
+              <select id="settingMaintenanceMode">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </label>
+            <label>Show App Version
+              <select id="settingShowVersion">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Footer Settings</h3>
+          <p class="muted">Controls the text shown at the bottom of the desktop sidebar.</p>
+          <div class="form-grid" style="margin-top:14px">
+            <label>Footer Text
+              <input id="settingFooterText" placeholder="© 2026 CajunVeteran™">
+            </label>
+            <label>Show Footer
+              <select id="settingShowFooter">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid cols-2">
+        <section class="card">
+          <h3>Tour Settings</h3>
+          <div class="form-grid">
+            <label>Prevent Overlapping Tours
+              <select id="settingPreventTourOverlap">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Require Orders Number
+              <select id="settingRequireOrdersNumber">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </label>
+            <label>Require Location
+              <select id="settingRequireLocation">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </label>
+            <label>Default Tour Status
+              <select id="settingDefaultTourStatus">
+                <option value="active">Active</option>
+                <option value="planned">Planned</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Cycle Settings</h3>
+          <div class="form-grid">
+            <label>Prevent Overlapping Cycles
+              <select id="settingPreventCycleOverlap">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Allow Cycle Deletion
+              <select id="settingAllowCycleDelete">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Block Delete When Receipts Exist
+              <select id="settingBlockCycleDeleteReceipts">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Require Cycles Inside Tour Dates
+              <select id="settingCycleInsideTour">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid cols-2">
+        <section class="card">
+          <h3>Receipt Settings</h3>
+          <div class="form-grid">
+            <label>Require Receipt Type
+              <select id="settingRequireReceiptType">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Require Receipt Attachment
+              <select id="settingRequireReceiptAttachment">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </label>
+            <label>Allowed File Types
+              <input id="settingAllowedFileTypes" placeholder="pdf,jpg,jpeg,png">
+            </label>
+            <label>Maximum Upload Size MB
+              <input id="settingMaxUploadMb" type="number" min="1" max="100" step="1">
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Audit Log Settings</h3>
+          <div class="form-grid">
+            <label>Enable Audit Logging
+              <select id="settingAuditEnabled">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Audit Retention
+              <select id="settingAuditRetention">
+                <option value="30">30 Days</option>
+                <option value="90">90 Days</option>
+                <option value="365">365 Days</option>
+                <option value="0">Unlimited</option>
+              </select>
+            </label>
+            <label>Log Admin Actions
+              <select id="settingLogAdminActions">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            <label>Log User Actions
+              <select id="settingLogUserActions">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/config.js?v=112"></script>
+  <script src="../assets/js/supabaseClient.js?v=112"></script>
+  <script src="../assets/js/auth.js?v=112"></script>
+  <script src="../assets/js/layout.js?v=112"></script>
+  <script src="../assets/js/settings.js?v=112"></script>
+</body>
+</html>

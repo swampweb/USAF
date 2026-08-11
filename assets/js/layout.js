@@ -137,11 +137,11 @@ async function renderLayout(activeTitle) {
         </div>
       </div>
       <nav>${userLinksHtml}${adminLinksHtml}</nav>
-      <div class="sidebar-footer">USAF Per Diem Tracker</div>
+      ${settings.show_sidebar_footer === false ? '' : `<div class="sidebar-footer">${settings.footer_text || '© 2026 CajunVeteran™'}</div>`}
     </aside>
     <main class="main">
       <header class="topbar" style="background-image: linear-gradient(90deg, rgba(0,48,143,.94), rgba(10,35,66,.86)), url('${assetWithCache(settings.dashboard_banner_path) || prefix + 'assets/img/default-banner.svg'}')">
-        <div><h1>${activeTitle}</h1><p>Track receipts, cycles, vouchers, and reports.</p></div>
+        <div><h1>${activeTitle}</h1><p>${settings.system_tagline || 'Track receipts, cycles, vouchers, and reports.'}</p></div>
         <div class="user-chip"><span>${profile?.display_name || profile?.email || 'User'}</span><small>${profile?.role || 'user'}</small><button onclick="signOut()">Sign Out</button></div>
       </header>
       <section class="page-content">${content}</section>
