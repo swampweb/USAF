@@ -77,6 +77,197 @@ async function logAuditEvent(action, moduleName, entityType, entityId, entityNam
   }
 }
 
+
+function tourArchived(tour) {
+  return tour?.archived === true || ['archived','purged'].includes(String(tour?.archive_status || '').toLowerCase());
+}
+
+function safeArchiveFileName(value) {
+  return String(value || 'archive').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function loadScriptOnce(src, testFn) {
+  return new Promise((resolve, reject) => {
+    if (testFn()) return resolve();
+    const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Could not load archive package library.')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.defer = true;
+    script.dataset.dynamicSrc = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Could not load archive package library.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureArchiveLibraries() {
+  await loadScriptOnce('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', () => !!window.JSZip);
+  await loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', () => !!window.jspdf?.jsPDF);
+}
+
+function showArchiveMessage(title, message, type = 'info') {
+  document.querySelector('.archive-message-backdrop')?.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open archive-message-backdrop';
+  modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="${modalEscapeHtml(title)}">
+    <div class="modal-body">
+      <div class="theme-message-icon ${type === 'danger' ? 'danger' : 'info'}">${type === 'danger' ? '!' : 'i'}</div>
+      <h2 class="theme-message-title">${modalEscapeHtml(title)}</h2>
+      <p class="theme-message-text">${modalEscapeHtml(message)}</p>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-archive-message>OK</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-archive-message]')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+}
+
+function confirmTourArchive(tour) {
+  return new Promise(resolve => {
+    document.querySelector('.archive-message-backdrop')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop open archive-message-backdrop';
+    modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Confirm Archive">
+      <div class="modal-body">
+        <div class="theme-message-icon danger">!</div>
+        <h2 class="theme-message-title">Confirm Archive</h2>
+        <p class="theme-message-text">Only confirm after opening the downloaded ZIP and verifying the Tour Summary PDF and receipt attachments are included.</p>
+        <div class="theme-message-panel danger">
+          <div><strong>Tour:</strong> ${modalEscapeHtml(tour?.tour_name || tour?.location || 'Tour')}</div>
+          <div><strong>Dates:</strong> ${fmtDate(tour?.orders_start_date)} - ${fmtDate(tour?.orders_end_date)}</div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-weight:900">
+          <input type="checkbox" id="tourArchiveVerifyCheck" style="width:auto;min-height:auto;margin-top:3px">
+          I verified the downloaded archive ZIP contains the summary and all receipt attachments.
+        </label>
+        <div class="actions" style="justify-content:flex-end;margin-top:16px">
+          <button class="btn secondary" type="button" data-cancel-tour-archive>Cancel</button>
+          <button class="btn danger" type="button" data-confirm-tour-archive disabled>Confirm Archive</button>
+        </div>
+      </div>
+    </div>`;
+    const close = value => { modal.remove(); resolve(value); };
+    document.body.appendChild(modal);
+    const confirmBtn = modal.querySelector('[data-confirm-tour-archive]');
+    modal.querySelector('#tourArchiveVerifyCheck')?.addEventListener('change', e => { confirmBtn.disabled = !e.target.checked; });
+    modal.querySelector('[data-cancel-tour-archive]')?.addEventListener('click', () => close(false));
+    confirmBtn?.addEventListener('click', () => close(true));
+    modal.addEventListener('click', event => { if (event.target === modal) close(false); });
+  });
+}
+
+async function getTourArchiveBundle(tourId) {
+  const toursUser = await getToursUser();
+  const { data: tour, error: tourError } = await window.usafSupabase.from('USAF_tours').select('*').eq('id', tourId).eq('user_id', toursUser.id).single();
+  if (tourError) throw tourError;
+  const [{ data: cycles, error: cycleError }, { data: receipts, error: receiptError }] = await Promise.all([
+    window.usafSupabase.from('USAF_cycles').select('*').eq('tour_id', tourId).order('start_date'),
+    window.usafSupabase.from('USAF_receipts').select('*, USAF_receipt_types(name)').eq('tour_id', tourId).order('receipt_date', { ascending: true })
+  ]);
+  if (cycleError) throw cycleError;
+  if (receiptError) throw receiptError;
+  return { tour, cycles: cycles || [], receipts: receipts || [], user: toursUser };
+}
+
+function buildUserTourSummaryPdf(bundle) {
+  const jsPDF = window.jspdf.jsPDF;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  let y = 42;
+  const line = (text, size = 10, weight = 'normal') => {
+    doc.setFont('helvetica', weight);
+    doc.setFontSize(size);
+    doc.text(String(text), 42, y);
+    y += size + 8;
+    if (y > 740) { doc.addPage(); y = 42; }
+  };
+  line('Tour Archive Summary', 18, 'bold');
+  line(`Generated: ${new Date().toLocaleString()}`);
+  line(`User: ${bundle.user?.display_name || bundle.user?.email || 'User'}`);
+  line(`Tour: ${bundle.tour.tour_name || bundle.tour.location || 'Tour'}`, 12, 'bold');
+  line(`Location: ${bundle.tour.location || 'No location'}`);
+  line(`Orders Number: ${bundle.tour.orders_number || 'Not set'}`);
+  line(`Dates: ${fmtDate(bundle.tour.orders_start_date)} - ${fmtDate(bundle.tour.orders_end_date)}`);
+  y += 8;
+  line('Cycles', 13, 'bold');
+  bundle.cycles.forEach(c => line(`${fmtDate(c.start_date)} - ${fmtDate(c.end_date)} | ${money(c.per_diem_per_day)}/day | ${c.status || 'active'}`));
+  y += 8;
+  line('Receipts', 13, 'bold');
+  bundle.receipts.forEach((r, i) => line(`${i + 1}. ${r.customer || r.USAF_receipt_types?.name || 'Receipt'} | ${fmtDate(r.receipt_date)} | ${money(r.amount)} | ${r.file_name || 'No file'}`));
+  return doc.output('blob');
+}
+
+async function addArchiveReceiptFile(zip, receipt, index) {
+  const bucket = receipt.file_bucket || window.USAF_CONFIG?.STORAGE_BUCKET;
+  const path = receipt.file_path;
+  if (!bucket || !path) return false;
+  const signed = await window.usafSupabase.storage.from(bucket).createSignedUrl(path, 60 * 10);
+  if (signed.error) throw signed.error;
+  const response = await fetch(signed.data.signedUrl);
+  if (!response.ok) throw new Error(`Could not download receipt file ${receipt.file_name || path}.`);
+  const blob = await response.blob();
+  const fileName = safeArchiveFileName(`${String(index + 1).padStart(3, '0')}_${receipt.file_name || path.split('/').pop()}`);
+  zip.file(`Receipts/${fileName}`, blob);
+  return true;
+}
+
+async function createUserTourArchivePackage(tourId) {
+  try {
+    if (blockReadOnlyView()) return;
+    await ensureArchiveLibraries();
+    const bundle = await getTourArchiveBundle(tourId);
+    const zip = new window.JSZip();
+    const packageName = `Archive_${safeArchiveFileName(bundle.tour.tour_name || bundle.tour.location || 'Tour')}_${new Date().toISOString().slice(0, 10)}.zip`;
+    zip.file('Tour_Summary.pdf', buildUserTourSummaryPdf(bundle));
+    zip.file('Archive_Record.json', JSON.stringify({ generated_at: new Date().toISOString(), package_name: packageName, tour: bundle.tour, receipt_count: bundle.receipts.length, cycle_count: bundle.cycles.length }, null, 2));
+    let fileCount = 0;
+    for (let i = 0; i < bundle.receipts.length; i++) {
+      if (await addArchiveReceiptFile(zip, bundle.receipts[i], i)) fileCount++;
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = packageName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    await window.usafSupabase.from('USAF_tours').update({ archive_status: 'package_created', archive_package_name: packageName }).eq('id', tourId).eq('user_id', bundle.tour.user_id);
+    await window.usafSupabase.from('USAF_archive_log').insert({ tour_id: tourId, target_user_id: bundle.tour.user_id, tour_name: bundle.tour.tour_name || bundle.tour.location || 'Tour', action: 'user_package_created', archive_package_name: packageName, receipt_count: bundle.receipts.length, file_count: fileCount });
+    showArchiveMessage('Archive Package Created', 'The ZIP downloaded. Open it and verify the Tour Summary PDF and receipt attachments before clicking Confirm Archive.');
+    await loadTours();
+    await selectTour(tourId);
+  } catch (err) {
+    console.error(err);
+    showArchiveMessage('Archive Package Failed', err.message || String(err), 'danger');
+  }
+}
+
+async function confirmUserTourArchive(tourId) {
+  if (blockReadOnlyView()) return;
+  const bundle = await getTourArchiveBundle(tourId);
+  const ok = await confirmTourArchive(bundle.tour);
+  if (!ok) return;
+  const user = await getCurrentUser();
+  const { error } = await window.usafSupabase.from('USAF_tours').update({ archived: true, archived_at: new Date().toISOString(), archived_by: user.id, archive_status: 'archived' }).eq('id', tourId).eq('user_id', bundle.tour.user_id);
+  if (error) return showArchiveMessage('Confirm Archive Failed', error.message, 'danger');
+  await window.usafSupabase.from('USAF_archive_log').insert({ tour_id: tourId, target_user_id: bundle.tour.user_id, tour_name: bundle.tour.tour_name || bundle.tour.location || 'Tour', action: 'user_confirmed_archive', archive_package_name: bundle.tour.archive_package_name || selectedTour?.archive_package_name || null, confirmed_at: new Date().toISOString(), confirmed_by: user.id });
+  showArchiveMessage('Tour Archived', 'This Tour is now archived and will move to the Archived filter. Admin can purge archived records later if needed.');
+  await loadTours();
+  if (tourFilter.querySelector('option[value="archived"]')) tourFilter.value = 'archived';
+  selectedTour = null;
+  currentCycles = [];
+  renderTourCards();
+  tourDetailWrap.innerHTML = '<div class="tour-detail-empty"><div><h2>Select a Tour</h2><p>The Tour was archived. Use the Archived filter to view archived Tours.</p></div></div>';
+}
+
 function activeStatus(status) {
   return status === 'active' || status === 'planned';
 }
@@ -84,12 +275,14 @@ function activeStatus(status) {
 function filteredTours() {
   const filter = tourFilter.value;
   if (filter === 'all') return allTours;
-  if (filter === 'active') return allTours.filter(t => activeStatus(t.status));
-  return allTours.filter(t => !activeStatus(t.status));
+  if (filter === 'archived') return allTours.filter(t => tourArchived(t));
+  if (filter === 'active') return allTours.filter(t => activeStatus(t.status) && !tourArchived(t));
+  return allTours.filter(t => !activeStatus(t.status) && !tourArchived(t));
 }
 
 async function initTours() {
   await renderLayout('Tours');
+  if (tourFilter && !tourFilter.querySelector('option[value="archived"]')) tourFilter.insertAdjacentHTML('beforeend', '<option value="archived">Archived</option>');
   bindEvents();
   await loadTours();
 }
@@ -122,6 +315,16 @@ async function loadTours() {
     return;
   }
   allTours = data || [];
+  try {
+    const ids = allTours.map(t => t.id).filter(Boolean);
+    if (ids.length) {
+      const { data: archiveRows } = await window.usafSupabase.from('USAF_tours').select('id,archived,archived_at,archived_by,archive_status,archive_package_name').in('id', ids);
+      (archiveRows || []).forEach(row => {
+        const tour = allTours.find(t => t.id === row.id);
+        if (tour) Object.assign(tour, row);
+      });
+    }
+  } catch (archiveErr) { console.warn('Tour archive fields unavailable', archiveErr); }
   renderTourCards();
   if (selectedTour) {
     const refreshed = allTours.find(t => t.id === selectedTour.id);
@@ -134,8 +337,9 @@ function renderTourCards() {
   const tours = filteredTours();
   tourCards.innerHTML = tours.map(t => {
     const inactive = !activeStatus(t.status);
-    return `<button class="tour-select-card ${selectedTour?.id === t.id ? 'active' : ''} ${inactive ? 'inactive' : ''}" data-id="${t.id}">
-      <div><strong>${t.tour_name}</strong><span>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)}</span><span class="status-pill ${inactive ? 'inactive' : ''}">${t.status}</span></div>
+    const archived = tourArchived(t);
+    return `<button class="tour-select-card ${selectedTour?.id === t.id ? 'active' : ''} ${inactive || archived ? 'inactive' : ''}" data-id="${t.id}">
+      <div><strong>${t.tour_name}</strong><span>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)}</span><span class="status-pill ${inactive || archived ? 'inactive' : ''}">${archived ? 'archived' : t.status}</span></div>
       <div class="tour-card-stats"><span>${t.cycle_count || 0} cycles</span><span>${money(t.per_diem_remaining)} left</span></div>
     </button>`;
   }).join('') || '<div class="empty-state">No Tours match this filter.</div>';
@@ -147,6 +351,10 @@ async function selectTour(tourId) {
   const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).eq('user_id', toursUser.id).single();
   if (error) return alert(error.message);
   selectedTour = data;
+  try {
+    const { data: archiveRow } = await window.usafSupabase.from('USAF_tours').select('archived,archived_at,archived_by,archive_status,archive_package_name').eq('id', tourId).eq('user_id', toursUser.id).maybeSingle();
+    if (archiveRow) Object.assign(selectedTour, archiveRow);
+  } catch (archiveErr) { console.warn('Tour archive fields unavailable', archiveErr); }
   renderTourCards();
   await loadCycles(tourId);
   renderTourDetail();
@@ -164,7 +372,7 @@ function renderTourDetail() {
   tourDetailWrap.innerHTML = `<div class="tour-detail">
     <div class="tour-detail-hero">
       <div><h2>${t.tour_name}</h2><p>${t.location || 'No location'} | ${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.orders_number || 'No orders number'}</p></div>
-      <div class="hero-actions"><button class="btn secondary" id="editTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>Edit Tour</button><button class="btn secondary" id="toggleTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button><button class="btn danger" id="deleteTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>Delete Tour</button></div>
+      <div class="hero-actions"><button class="btn secondary" id="editTourBtn" ${toursReadOnlyView() || tourArchived(t) ? 'disabled' : ''}>Edit Tour</button>${tourArchived(t) ? '<button class="btn secondary" id="archiveTourBtn">Create Archive Package</button>' : `<button class="btn secondary" id="toggleTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>${activeStatus(t.status) ? 'Make Inactive' : 'Make Active'}</button>${!activeStatus(t.status) ? `<button class="btn" id="archiveTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>${String(t.archive_status || '').toLowerCase() === 'package_created' ? 'Confirm Archive' : 'Archive Tour'}</button>` : ''}<button class="btn danger" id="deleteTourBtn" ${toursReadOnlyView() ? 'disabled' : ''}>Delete Tour</button>`}</div>
     </div>
     <div class="tour-metrics">
       <div class="metric-mini"><span>Cycles</span><strong>${t.cycle_count || 0}</strong></div>
@@ -177,10 +385,14 @@ function renderTourDetail() {
       <div class="table-wrap"><table><thead><tr><th>Dates</th><th>Days</th><th>Per Day</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>${cycleRowsHtml()}</tbody></table></div>
     </div>
   </div>`;
-  editTourBtn.addEventListener('click', () => openTourModal(t));
-  toggleTourBtn.addEventListener('click', toggleTourActive);
-  deleteTourBtn.addEventListener('click', deleteTour);
-  addCycleBtn.addEventListener('click', () => openCycleModal());
+  editTourBtn?.addEventListener('click', () => openTourModal(t));
+  toggleTourBtn?.addEventListener('click', toggleTourActive);
+  deleteTourBtn?.addEventListener('click', deleteTour);
+  archiveTourBtn?.addEventListener('click', () => {
+    if (String(selectedTour?.archive_status || '').toLowerCase() === 'package_created') confirmUserTourArchive(selectedTour.id);
+    else createUserTourArchivePackage(selectedTour.id);
+  });
+  addCycleBtn?.addEventListener('click', () => openCycleModal());
   document.querySelectorAll('[data-edit-cycle]').forEach(btn => btn.addEventListener('click', () => openCycleModal(currentCycles.find(c => c.id === btn.dataset.editCycle))));
   document.querySelectorAll('[data-delete-cycle]').forEach(btn => btn.addEventListener('click', () => deleteCycle(btn.dataset.deleteCycle)));
 }
