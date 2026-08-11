@@ -194,6 +194,116 @@ function cycleRowsHtml() {
   }).join('');
 }
 
+
+function parseLocalDate(value) {
+  return new Date(String(value) + 'T00:00:00');
+}
+
+function addDays(value, days) {
+  const date = parseLocalDate(value);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function findOverlappingTour(startDate, endDate, currentTourId = '') {
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  return allTours.find(t => {
+    if (!t || t.id === currentTourId) return false;
+    if (!activeStatus(t.status)) return false;
+    const existingStartValue = t.orders_start_date || t.start_date;
+    const existingEndValue = t.orders_end_date || t.end_date;
+    if (!existingStartValue || !existingEndValue) return false;
+    const existingStart = parseLocalDate(existingStartValue);
+    const existingEnd = parseLocalDate(existingEndValue);
+    return start <= existingEnd && end >= existingStart;
+  });
+}
+
+function showTourDateConflictMessage(startDate, endDate, conflict) {
+  const existingName = conflict?.tour_name || conflict?.location || 'Existing Tour';
+  const existingDates = conflict ? `${fmtDate(conflict.orders_start_date)} - ${fmtDate(conflict.orders_end_date)}` : 'an existing Tour';
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Tour Date Conflict">
+    <div class="modal-body">
+      <div class="theme-message-icon warning">⚠️</div>
+      <h2 class="theme-message-title">Tour Date Conflict</h2>
+      <p class="theme-message-text">The selected Tour dates overlap with another Tour already assigned to this account.</p>
+      <div class="theme-message-panel">
+        <div><strong>Selected Tour Dates:</strong> ${fmtDate(startDate)} - ${fmtDate(endDate)}</div>
+        <div><strong>Existing Tour:</strong> ${escapeHtml(existingName)}</div>
+        <div><strong>Existing Tour Dates:</strong> ${existingDates}</div>
+      </div>
+      <p class="theme-message-text">Please choose a date range that does not overlap, or edit the existing Tour if these dates belong with that trip.</p>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-tour-conflict>OK</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-tour-conflict]')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+}
+
+function getAvailableCycleRanges(currentCycleId = '') {
+  if (!selectedTour?.orders_start_date || !selectedTour?.orders_end_date) return [];
+  const ranges = [];
+  let cursor = selectedTour.orders_start_date;
+  const booked = currentCycles
+    .filter(c => c && c.id !== currentCycleId && String(c.status || '').toLowerCase() !== 'cancelled')
+    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+  booked.forEach(cycle => {
+    if (cycle.start_date > cursor) ranges.push({ start: cursor, end: addDays(cycle.start_date, -1) });
+    if (cycle.end_date >= cursor) cursor = addDays(cycle.end_date, 1);
+  });
+  if (cursor <= selectedTour.orders_end_date) ranges.push({ start: cursor, end: selectedTour.orders_end_date });
+  return ranges.filter(r => r.start <= r.end);
+}
+
+function findAvailableCycleRangeForDate(dateValue, currentCycleId = '') {
+  return getAvailableCycleRanges(currentCycleId).find(r => dateValue >= r.start && dateValue <= r.end) || null;
+}
+
+function setCycleDatePickerLimits(cycle = null) {
+  const currentCycleId = cycle?.id || cycle_id_edit.value || '';
+  const ranges = getAvailableCycleRanges(currentCycleId);
+  const helpId = 'cycleDateAvailabilityHelp';
+  let help = document.getElementById(helpId);
+  if (!help && cycle_end_date) {
+    help = document.createElement('div');
+    help.id = helpId;
+    help.className = 'summary-note';
+    help.style.marginTop = '10px';
+    cycle_end_date.closest('label')?.insertAdjacentElement('afterend', help);
+  }
+  if (!ranges.length) {
+    cycle_start_date.min = selectedTour.orders_start_date || '';
+    cycle_start_date.max = selectedTour.orders_end_date || '';
+    cycle_end_date.min = selectedTour.orders_start_date || '';
+    cycle_end_date.max = selectedTour.orders_end_date || '';
+    if (help) help.textContent = 'All dates in this Tour are already assigned to existing cycles. Edit an existing cycle or adjust the Tour dates.';
+    return;
+  }
+  const first = ranges[0];
+  const last = ranges[ranges.length - 1];
+  cycle_start_date.min = first.start;
+  cycle_start_date.max = last.end;
+  if (!cycle && (!cycle_start_date.value || !findAvailableCycleRangeForDate(cycle_start_date.value, currentCycleId))) {
+    cycle_start_date.value = first.start;
+    cycle_end_date.value = first.end;
+  }
+  const selectedStart = cycle_start_date.value || first.start;
+  const activeRange = findAvailableCycleRangeForDate(selectedStart, currentCycleId) || first;
+  cycle_end_date.min = selectedStart < activeRange.start ? activeRange.start : selectedStart;
+  cycle_end_date.max = activeRange.end;
+  if (!cycle_end_date.value || cycle_end_date.value < cycle_end_date.min || cycle_end_date.value > cycle_end_date.max) cycle_end_date.value = cycle_end_date.min;
+  if (help) {
+    const text = ranges.map(r => `${fmtDate(r.start)} - ${fmtDate(r.end)}`).join(' | ');
+    help.textContent = `Available cycle dates for this Tour: ${text}`;
+  }
+}
+
 function openTourModal(tour = null) {
   tourForm.reset();
   tour_id_edit.value = tour?.id || '';
@@ -217,9 +327,21 @@ async function saveTour(e) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_name:tour_name.value.trim(), location:location_name.value.trim() || null, orders_number:orders_number.value.trim() || null, orders_start_date:orders_start_date.value, orders_end_date:orders_end_date.value, status:status.value, notes:notes.value.trim() || null };
   const id = tour_id_edit.value;
+  if (payload.orders_end_date < payload.orders_start_date) return alert('Tour End Date cannot be before Tour Start Date.');
+  const tourConflict = findOverlappingTour(payload.orders_start_date, payload.orders_end_date, id);
+  if (tourConflict) {
+    showTourDateConflictMessage(payload.orders_start_date, payload.orders_end_date, tourConflict);
+    return;
+  }
   const oldTour = id ? (allTours.find(t => t.id === id) || selectedTour || null) : null;
   const result = id ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).select().single() : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
-  if (result.error) return alert(result.error.message);
+  if (result.error) {
+    if (String(result.error.message || '').toLowerCase().includes('conflicting key value') || String(result.error.message || '').toLowerCase().includes('overlap')) {
+      showTourDateConflictMessage(payload.orders_start_date, payload.orders_end_date, null);
+      return;
+    }
+    return alert(result.error.message);
+  }
   await logAuditEvent(id ? 'Tour Updated' : 'Tour Created', 'Tours', 'Tour', result.data?.id || id, payload.tour_name, id ? 'warning' : 'info', { location: payload.location, orders_number: payload.orders_number }, oldTour || {}, result.data || payload);
   closeTourEditor();
   await loadTours();
@@ -268,6 +390,8 @@ function openCycleModal(cycle = null) {
     cycle_status.value = cycle.status || 'active';
     cycle_notes.value = cycle.notes || '';
   }
+  setCycleDatePickerLimits(cycle);
+  cycle_start_date.onchange = () => setCycleDatePickerLimits(cycle);
   cycleModal.classList.add('open');
 }
 function closeCycleEditor() { cycleModal.classList.remove('open'); }
