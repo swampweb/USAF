@@ -8,7 +8,25 @@ function receiptScopeLabel(scope) { return scope === 'per_diem' ? 'Per Diem' : '
 function fileIcon(r) { return r && r.file_path ? '📎 ' : ''; }
 function sumRows(rows) { return rows.reduce((sum, r) => sum + Number(r.amount || 0), 0); }
 
+
+async function getVoucherUser() {
+  if (window.USAFEffectiveUser && typeof window.USAFEffectiveUser.getEffectiveUser === 'function') {
+    const effectiveUser = await window.USAFEffectiveUser.getEffectiveUser();
+    if (effectiveUser && effectiveUser.id) return effectiveUser;
+  }
+  return await getCurrentUser();
+}
+
+function ensureVoucherCleanStyles() {
+  if (document.getElementById('voucherCleanStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'voucherCleanStyles';
+  style.textContent = `.voucher-tour-list{display:grid;gap:10px}.voucher-tour-card.voucher-clean-card{width:100%;text-align:left;border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px;display:grid;gap:10px;cursor:pointer}.voucher-tour-card.voucher-clean-card.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(30,64,175,.12)}.voucher-clean-title strong{display:block;font-size:15px;margin-bottom:4px}.voucher-clean-title small{display:block;color:var(--muted);font-weight:800}.voucher-clean-counts{display:flex;gap:8px;flex-wrap:wrap}.voucher-clean-pill{border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:8px 10px;min-width:78px;text-align:center}.voucher-clean-pill span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:900}.voucher-clean-pill strong{display:block;font-size:17px;color:var(--primary);line-height:1.1}.voucher-clean-amount{color:var(--muted);font-weight:900}`;
+  document.head.appendChild(style);
+}
+
 async function initVoucherPackages() {
+  ensureVoucherCleanStyles();
   await renderLayout('Voucher Packages');
   bindVoucherEvents();
   await loadTours();
@@ -27,7 +45,12 @@ function bindVoucherEvents() {
 }
 
 async function loadTours() {
-  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').order('orders_start_date', { ascending:false });
+  const user = await getVoucherUser();
+  const { data, error } = await window.usafSupabase
+    .from('USAF_tour_summary')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('orders_start_date', { ascending:false });
   if (error) { tourCards.innerHTML = `<div class="empty-state">${error.message}</div>`; return; }
   toursCache = data || [];
   await renderTourCards();
@@ -41,7 +64,13 @@ function filteredTours() {
 }
 
 async function getTourAvailableCounts(tourId) {
-  const { data } = await window.usafSupabase.from('USAF_receipts').select('scope,amount,is_processed').eq('tour_id', tourId).eq('is_processed', false);
+  const user = await getVoucherUser();
+  const { data } = await window.usafSupabase
+    .from('USAF_receipts')
+    .select('scope,amount,is_processed')
+    .eq('tour_id', tourId)
+    .eq('user_id', user.id)
+    .eq('is_processed', false);
   const rows = data || [];
   return {
     perDiem: rows.filter(r => r.scope === 'per_diem').length,
@@ -57,10 +86,14 @@ async function renderTourCards() {
   const cards = [];
   for (const t of tours) {
     const counts = await getTourAvailableCounts(t.id);
-    cards.push(`<button class="voucher-tour-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${t.id}">
-      <div><strong>${t.tour_name}</strong><small>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.status}</small></div>
-      <div class="voucher-counts"><div class="voucher-count-pill"><span>Available Per Diem</span><strong>${counts.perDiem}</strong></div><div class="voucher-count-pill"><span>Available Other</span><strong>${counts.other}</strong></div><div class="voucher-count-pill"><span>Available Total</span><strong>${counts.total}</strong></div></div>
-      <small>Available Amount: ${money(counts.amount)}</small>
+    cards.push(`<button class="voucher-tour-card voucher-clean-card ${selectedTour?.id === t.id ? 'active' : ''}" data-id="${t.id}">
+      <div class="voucher-clean-title"><strong>${t.tour_name}</strong><small>${fmtDate(t.orders_start_date)} - ${fmtDate(t.orders_end_date)} | ${t.status}</small></div>
+      <div class="voucher-clean-counts">
+        <div class="voucher-clean-pill"><span>Per Diem</span><strong>${counts.perDiem}</strong></div>
+        <div class="voucher-clean-pill"><span>Other</span><strong>${counts.other}</strong></div>
+        <div class="voucher-clean-pill"><span>Total</span><strong>${counts.total}</strong></div>
+      </div>
+      <small class="voucher-clean-amount">Available Amount: ${money(counts.amount)}</small>
     </button>`);
   }
   tourCards.innerHTML = cards.join('');
@@ -68,7 +101,13 @@ async function renderTourCards() {
 }
 
 async function selectTour(tourId) {
-  const { data, error } = await window.usafSupabase.from('USAF_tour_summary').select('*').eq('id', tourId).single();
+  const user = await getVoucherUser();
+  const { data, error } = await window.usafSupabase
+    .from('USAF_tour_summary')
+    .select('*')
+    .eq('id', tourId)
+    .eq('user_id', user.id)
+    .single();
   if (error) return showVoucherError('Operation Failed', error.message);
   selectedTour = data;
   await loadAvailableReceipts();
@@ -78,10 +117,12 @@ async function selectTour(tourId) {
 }
 
 async function loadAvailableReceipts() {
+  const user = await getVoucherUser();
   const { data, error } = await window.usafSupabase
     .from('USAF_receipts')
     .select('*, USAF_receipt_types(name)')
     .eq('tour_id', selectedTour.id)
+    .eq('user_id', user.id)
     .eq('is_processed', false)
     .order('receipt_date', { ascending:true });
   if (error) { showVoucherError('Receipt Load Failed', error.message); availableReceipts = []; return; }
@@ -89,10 +130,12 @@ async function loadAvailableReceipts() {
 }
 
 async function loadPackages() {
+  const user = await getVoucherUser();
   const { data, error } = await window.usafSupabase
     .from('USAF_vouchers')
     .select('*')
     .eq('tour_id', selectedTour.id)
+    .eq('user_id', user.id)
     .order('created_at', { ascending:false });
   if (error) { showVoucherError('Package Load Failed', error.message); packagesCache = []; return; }
   packagesCache = data || [];
