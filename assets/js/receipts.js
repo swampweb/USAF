@@ -379,24 +379,68 @@ function setScope(scope) {
   populateReceiptTypes(type_id.value);
 }
 
+function receiptTypeFlagValue(type, names) {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(type, name)) return type[name];
+  }
+  return undefined;
+}
+
+function truthyReceiptTypeFlag(value) {
+  if (value === true) return true;
+  const text = String(value ?? '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', 'on', 'checked'].includes(text);
+}
+
+function hasReceiptTypeFlag(type, names) {
+  return names.some(name => Object.prototype.hasOwnProperty.call(type, name));
+}
+
 function receiptTypeAvailableForScope(type, scope) {
-  const explicitScope = String(type.scope || type.used_for || '').toLowerCase();
-  if (explicitScope) {
-    if (explicitScope === 'both') return true;
-    if (scope === 'per_diem') return ['per_diem', 'per diem'].includes(explicitScope);
-    if (scope === 'other') return explicitScope === 'other';
+  const rawScope = String(type.scope || type.used_for || type.usage || type.category || type.applies_to || '').trim().toLowerCase();
+  const normalizedScope = rawScope.replace(/[_-]+/g, ' ');
+
+  if (normalizedScope) {
+    const bothValues = ['both', 'all', 'per diem + other', 'per diem and other', 'per diem other', 'perdiem other', 'per diem, other'];
+    const perDiemValues = ['per diem', 'perdiem', 'per diem only', 'per_diem'];
+    const otherValues = ['other', 'other only'];
+
+    if (bothValues.includes(normalizedScope)) return true;
+    if (scope === 'per_diem' && perDiemValues.includes(normalizedScope)) return true;
+    if (scope === 'other' && otherValues.includes(normalizedScope)) return true;
+    if (scope === 'per_diem' && normalizedScope.includes('per diem') && normalizedScope.includes('other')) return true;
+    if (scope === 'other' && normalizedScope.includes('per diem') && normalizedScope.includes('other')) return true;
+    if (scope === 'per_diem' && normalizedScope.includes('per diem') && !normalizedScope.includes('other only')) return true;
+    if (scope === 'other' && normalizedScope.includes('other') && !normalizedScope.includes('per diem only')) return true;
+    return false;
   }
 
-  const hasPerDiemFlag = Object.prototype.hasOwnProperty.call(type, 'show_per_diem') || Object.prototype.hasOwnProperty.call(type, 'per_diem') || Object.prototype.hasOwnProperty.call(type, 'for_per_diem');
-  const hasOtherFlag = Object.prototype.hasOwnProperty.call(type, 'show_other') || Object.prototype.hasOwnProperty.call(type, 'other') || Object.prototype.hasOwnProperty.call(type, 'for_other');
-  const perDiemAllowed = type.show_per_diem === true || type.per_diem === true || type.for_per_diem === true;
-  const otherAllowed = type.show_other === true || type.other === true || type.for_other === true;
+  const perDiemNames = [
+    'show_per_diem', 'show_for_per_diem', 'show_for_per_diem_receipts',
+    'per_diem', 'for_per_diem', 'is_per_diem', 'use_per_diem',
+    'applies_per_diem', 'applies_to_per_diem', 'per_diem_receipts',
+    'show_in_per_diem', 'visible_per_diem', 'available_per_diem'
+  ];
+  const otherNames = [
+    'show_other', 'show_for_other', 'show_for_other_receipts',
+    'other', 'for_other', 'is_other', 'use_other',
+    'applies_other', 'applies_to_other', 'other_receipts',
+    'show_in_other', 'visible_other', 'available_other'
+  ];
 
-  if (hasPerDiemFlag || hasOtherFlag) {
+  const hasPerDiem = hasReceiptTypeFlag(type, perDiemNames);
+  const hasOther = hasReceiptTypeFlag(type, otherNames);
+
+  if (hasPerDiem || hasOther) {
+    const perDiemAllowed = truthyReceiptTypeFlag(receiptTypeFlagValue(type, perDiemNames));
+    const otherAllowed = truthyReceiptTypeFlag(receiptTypeFlagValue(type, otherNames));
     return scope === 'per_diem' ? perDiemAllowed : otherAllowed;
   }
 
-  return true;
+  // Legacy fallback only. If older data has no scope columns, keep Meals/Grocery as Per Diem and leave everything else as Other.
+  const name = String(type.name || '').trim().toLowerCase();
+  if (scope === 'per_diem') return ['meals', 'meal', 'grocery', 'groceries'].includes(name);
+  return !['meals', 'meal', 'grocery', 'groceries'].includes(name) || true;
 }
 
 function populateReceiptTypes(selected='') {
