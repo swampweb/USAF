@@ -160,7 +160,49 @@ function showThemeMessage(title, message, type = 'warning') {
   modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
 }
 
+
+function confirmReceiptDelete(receipt) {
+  return new Promise(resolve => {
+    document.querySelector('.theme-message-backdrop')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop open theme-message-backdrop';
+    const title = receipt?.customer || receiptTypeName(receipt || {}) || 'Receipt';
+    modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Delete Receipt">
+      <div class="modal-body">
+        <div class="theme-message-icon danger">!</div>
+        <h2 class="theme-message-title">Delete Receipt?</h2>
+        <p class="theme-message-text">This will permanently delete the selected receipt.</p>
+        <div class="theme-message-panel danger">
+          <div><strong>Receipt:</strong> ${esc(title)}</div>
+          <div><strong>Date:</strong> ${dt(receipt?.receipt_date) || 'No date'}</div>
+          <div><strong>Amount:</strong> ${money(receipt?.amount || 0)}</div>
+        </div>
+        <p class="theme-message-text">This action cannot be undone.</p>
+        <div class="actions" style="justify-content:flex-end;margin-top:16px">
+          <button class="btn secondary" type="button" data-cancel-receipt-delete>Cancel</button>
+          <button class="btn danger" type="button" data-confirm-receipt-delete>Delete Receipt</button>
+        </div>
+      </div>
+    </div>`;
+    const close = value => { modal.remove(); resolve(value); };
+    document.body.appendChild(modal);
+    modal.querySelector('[data-cancel-receipt-delete]')?.addEventListener('click', () => close(false));
+    modal.querySelector('[data-confirm-receipt-delete]')?.addEventListener('click', () => close(true));
+    modal.addEventListener('click', event => { if (event.target === modal) close(false); });
+  });
+}
+
+
+function ensureReceiptCleanStyles() {
+  if (document.getElementById('receiptCleanStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'receiptCleanStyles';
+  style.textContent = `.clean-receipt-list{gap:8px}.desktop-receipt-card.clean{padding:12px 14px;border-radius:16px}.desktop-receipt-card.clean .desktop-receipt-title strong{font-size:15px}.desktop-receipt-card.clean .desktop-receipt-title span{font-size:12px;color:var(--muted);font-weight:800}.receipt-meta-clean{margin-top:4px}.receipt-meta-clean>span{padding:4px 8px;font-size:11px}.receipt-file-clean{font-size:11px;font-weight:900;color:var(--primary);background:transparent;border:0;cursor:pointer;padding:0}.receipt-file-clean:hover{text-decoration:underline}.desktop-receipt-card.clean .desktop-receipt-amount{font-size:18px}`;
+  document.head.appendChild(style);
+}
+
 async function initReceipts() {
+  ensureReceiptCleanStyles();
   await renderLayout('Receipts');
   if (window.USAFEffectiveUser) window.USAFEffectiveUser.initViewAsUi();
   bindEvents();
@@ -302,19 +344,19 @@ function renderReceiptWorkspace() {
 function receiptTable(scope) {
   const rows = receiptsByScope(scope);
   if (!rows.length) return `<div class="empty-state">No ${scopeLabel(scope)} receipts yet.</div>`;
-  return `<div class="receipt-card-table compact-receipt-list">${rows.map(r => {
+  return `<div class="receipt-card-table compact-receipt-list clean-receipt-list">${rows.map(r => {
     const attachedClass = hasReceiptFile(r) ? 'has-attachment' : '';
-    return `<article class="desktop-receipt-card compact ${attachedClass}">
+    const typeName = receiptTypeName(r) || scopeLabel(scope);
+    const cycleText = cycleLabelForReceipt(r);
+    return `<article class="desktop-receipt-card compact clean ${attachedClass}">
       <div class="desktop-receipt-left">
         <div class="desktop-receipt-title">
-          <strong>${hasReceiptFile(r) ? '📎 ' : ''}${esc(r.customer || receiptTypeName(r) || scopeLabel(scope) + ' Receipt')}</strong>
-          <span>${esc(receiptTypeName(r) || 'No type selected')}</span>
+          <strong>${esc(r.customer || typeName + ' Receipt')}</strong>
+          <span>${esc(typeName)} · ${dt(r.receipt_date) || 'No date'}${scope === 'per_diem' ? ` · ${esc(cycleText)}` : ''}</span>
         </div>
-        <div class="desktop-receipt-meta-line">
-          <span><b>Date:</b> ${dt(r.receipt_date) || 'No date'}</span>
-          <span><b>Cycle:</b> ${cycleLabelForReceipt(r)}</span>
-          <span><b>File:</b> ${receiptFileHtml(r, true)}</span>
-          <span><b>Notes:</b> ${esc(r.notes || 'No notes')}</span>
+        <div class="desktop-receipt-meta-line receipt-meta-clean">
+          ${hasReceiptFile(r) ? `<span class="receipt-file-pill-clean"><b>File:</b> ${receiptFileHtml(r, true)}</span>` : ''}
+          ${r.notes ? `<span><b>Notes:</b> ${esc(r.notes)}</span>` : ''}
         </div>
       </div>
       <div class="desktop-receipt-right">
@@ -327,6 +369,7 @@ function receiptTable(scope) {
     </article>`;
   }).join('')}</div>`;
 }
+
 function setScope(scope) {
   currentScope = scope;
   receipt_scope.value = scope;
@@ -433,7 +476,8 @@ async function deleteReceipt(id) {
   if (isReadOnlyViewAs()) return showThemeMessage('Read-Only View', 'Read-only while viewing as another user.', 'warning');
   const user = await currentUser();
   const r = receiptsCache.find(x => x.id === id);
-  if (!confirm(`Delete receipt ${r?.customer || ''} ${r?.receipt_date || ''}? This cannot be undone.`)) return;
+  const confirmed = await confirmReceiptDelete(r);
+  if (!confirmed) return;
   const deletedReceipt = r ? { ...r } : {};
   const { error } = await window.usafSupabase.from('USAF_receipts').delete().eq('id', id).eq('user_id', user.id);
   if (error) return showThemeMessage('Receipt Delete Failed', error.message, 'danger');
