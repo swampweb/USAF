@@ -182,7 +182,7 @@ function renderTourDetail() {
   deleteTourBtn.addEventListener('click', deleteTour);
   addCycleBtn.addEventListener('click', () => openCycleModal());
   document.querySelectorAll('[data-edit-cycle]').forEach(btn => btn.addEventListener('click', () => openCycleModal(currentCycles.find(c => c.id === btn.dataset.editCycle))));
-  document.querySelectorAll('[data-toggle-cycle]').forEach(btn => btn.addEventListener('click', () => toggleCycleActive(btn.dataset.toggleCycle)));
+  document.querySelectorAll('[data-delete-cycle]').forEach(btn => btn.addEventListener('click', () => deleteCycle(btn.dataset.deleteCycle)));
 }
 
 function cycleRowsHtml() {
@@ -190,7 +190,7 @@ function cycleRowsHtml() {
   return currentCycles.map(c => {
     const days = ((new Date(c.end_date) - new Date(c.start_date)) / 86400000) + 1;
     const total = days * Number(c.per_diem_per_day || 0);
-    return `<tr><td>${fmtDate(c.start_date)} - ${fmtDate(c.end_date)}</td><td>${days}</td><td>${money(c.per_diem_per_day)}</td><td>${money(total)}</td><td><span class="badge">${c.status}</span></td><td class="actions"><button class="btn small secondary" data-edit-cycle="${c.id}">Edit</button><button class="btn small ${c.status === 'cancelled' ? 'secondary' : 'danger'}" data-toggle-cycle="${c.id}">${c.status === 'cancelled' ? 'Activate' : 'Inactive'}</button></td></tr>`;
+    return `<tr><td>${fmtDate(c.start_date)} - ${fmtDate(c.end_date)}</td><td>${days}</td><td>${money(c.per_diem_per_day)}</td><td>${money(total)}</td><td><span class="badge">${c.status}</span></td><td class="actions"><button class="btn small secondary" data-edit-cycle="${c.id}">Edit</button><button class="btn small danger" data-delete-cycle="${c.id}">Delete</button></td></tr>`;
   }).join('');
 }
 
@@ -478,15 +478,78 @@ async function saveCycle(e) {
   closeCycleEditor();
   await selectTour(selectedTour.id);
 }
-async function toggleCycleActive(id) {
+function showCycleDeleteBlockedMessage(cycle, receiptCount) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Cycle Cannot Be Deleted">
+    <div class="modal-body">
+      <div class="theme-message-icon warning">⚠️</div>
+      <h2 class="theme-message-title">Cycle Cannot Be Deleted</h2>
+      <p class="theme-message-text">This cycle has receipts assigned to it, so it cannot be deleted yet.</p>
+      <div class="theme-message-panel">
+        <div><strong>Cycle:</strong> ${fmtDate(cycle.start_date)} - ${fmtDate(cycle.end_date)}</div>
+        <div><strong>Assigned Receipts:</strong> ${receiptCount}</div>
+      </div>
+      <p class="theme-message-text">Move or delete the receipts first, then delete this cycle.</p>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-cycle-delete-blocked>OK</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-cycle-delete-blocked]')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+}
+
+function confirmDeleteCycle(cycle) {
+  return new Promise(resolve => {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop open';
+    modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Delete Cycle">
+      <div class="modal-body">
+        <div class="theme-message-icon danger">🗑️</div>
+        <h2 class="theme-message-title">Delete Cycle?</h2>
+        <p class="theme-message-text">This will permanently delete the selected cycle.</p>
+        <div class="theme-message-panel danger">
+          <div><strong>Cycle:</strong> ${fmtDate(cycle.start_date)} - ${fmtDate(cycle.end_date)}</div>
+          <div><strong>Per Diem / Day:</strong> ${money(cycle.per_diem_per_day)}</div>
+        </div>
+        <p class="theme-message-text">This action cannot be undone.</p>
+        <div class="actions" style="justify-content:flex-end;margin-top:16px">
+          <button class="btn secondary" type="button" data-cancel-cycle-delete>Cancel</button>
+          <button class="btn danger" type="button" data-confirm-cycle-delete>Delete Cycle</button>
+        </div>
+      </div>
+    </div>`;
+    const close = value => { modal.remove(); resolve(value); };
+    document.body.appendChild(modal);
+    modal.querySelector('[data-cancel-cycle-delete]')?.addEventListener('click', () => close(false));
+    modal.querySelector('[data-confirm-cycle-delete]')?.addEventListener('click', () => close(true));
+    modal.addEventListener('click', event => { if (event.target === modal) close(false); });
+  });
+}
+
+async function deleteCycle(id) {
   if (blockReadOnlyView()) return;
   const cycle = currentCycles.find(c => c.id === id);
   if (!cycle) return;
-  const newStatus = cycle.status === 'cancelled' ? 'active' : 'cancelled';
+  const user = await getCurrentUser();
+  const receiptCheck = await window.usafSupabase
+    .from('USAF_receipts')
+    .select('id', { count: 'exact', head: true })
+    .eq('cycle_id', id)
+    .eq('user_id', user.id);
+  if (receiptCheck.error) return alert(receiptCheck.error.message);
+  if ((receiptCheck.count || 0) > 0) {
+    showCycleDeleteBlockedMessage(cycle, receiptCheck.count || 0);
+    return;
+  }
+  const confirmed = await confirmDeleteCycle(cycle);
+  if (!confirmed) return;
   const oldCycle = { ...cycle };
-  const { error } = await window.usafSupabase.from('USAF_cycles').update({ status:newStatus }).eq('id', id);
+  const { error } = await window.usafSupabase.from('USAF_cycles').delete().eq('id', id).eq('user_id', user.id);
   if (error) return alert(error.message);
-  await logAuditEvent('Cycle Status Changed', 'Tours', 'Cycle', id, selectedTour?.tour_name || 'Cycle', newStatus === 'cancelled' ? 'critical' : 'warning', { old_status: oldCycle.status, new_status: newStatus, tour_id: selectedTour?.id }, oldCycle, { ...oldCycle, status: newStatus });
+  await logAuditEvent('Cycle Deleted', 'Tours', 'Cycle', id, selectedTour?.tour_name || 'Cycle', 'critical', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name }, oldCycle, {});
   await selectTour(selectedTour.id);
 }
 
