@@ -5,8 +5,8 @@ let selectedUser = null;
 
 async function logAuditEvent(action, moduleName, entityType, entityId, entityName, severity = 'info', details = {}, oldValues = {}, newValues = {}) {
   try {
-    if (!window.usafSupabase || typeof window.usafSupabase.rpc !== 'function') return;
-    const { error } = await window.usafSupabase.rpc('log_audit_event', {
+    if (!window.usafSupabase) return;
+    const rpcPayload = {
       p_action: action,
       p_module: moduleName,
       p_entity_type: entityType,
@@ -16,10 +16,47 @@ async function logAuditEvent(action, moduleName, entityType, entityId, entityNam
       p_details: details || {},
       p_old_values: oldValues || {},
       p_new_values: newValues || {}
+    };
+    if (typeof window.usafSupabase.rpc === 'function') {
+      const rpcResult = await window.usafSupabase.rpc('log_audit_event', rpcPayload);
+      if (!rpcResult.error) return;
+      console.warn('Audit RPC failed. Trying direct audit insert.', rpcResult.error);
+    }
+    let currentUserId = null;
+    let actorProfile = null;
+    try {
+      if (typeof getCurrentUser === 'function') {
+        const currentUser = await getCurrentUser();
+        currentUserId = currentUser?.id || null;
+      }
+    } catch (_) {}
+    if (currentUserId) {
+      const profileResult = await window.usafSupabase
+        .from('USAF_profiles')
+        .select('display_name,email,role')
+        .eq('id', currentUserId)
+        .maybeSingle();
+      actorProfile = profileResult.data || null;
+    }
+    const insertResult = await window.usafSupabase.from('USAF_audit_log').insert({
+      actor_user_id: currentUserId,
+      actor_display_name: actorProfile?.display_name || null,
+      actor_email: actorProfile?.email || null,
+      actor_role: actorProfile?.role || null,
+      action,
+      module: moduleName || 'System',
+      entity_type: entityType || null,
+      entity_id: entityId ? String(entityId) : null,
+      entity_name: entityName || null,
+      severity: ['info', 'warning', 'critical'].includes(severity) ? severity : 'info',
+      details: details || {},
+      old_values: oldValues || {},
+      new_values: newValues || {},
+      user_agent: navigator.userAgent || null
     });
-    if (error) console.warn('Audit log write failed', error);
+    if (insertResult.error) console.error('Audit direct insert failed', insertResult.error);
   } catch (err) {
-    console.warn('Audit log write failed', err);
+    console.error('Audit log write failed', err);
   }
 }
 
