@@ -19,7 +19,9 @@
     require_cycles_inside_tour_dates: true,
     require_receipt_type: true,
     require_receipt_attachment: false,
-    allowed_file_types: 'pdf,jpg,jpeg,png',
+    allowed_file_types: 'pdf,jpg,jpeg,png,heic,webp',
+    auto_convert_images_to_pdf: true,
+    keep_receipts_separate: true,
     max_upload_mb: 10,
     audit_logging_enabled: true,
     audit_retention_days: 365,
@@ -44,6 +46,8 @@
     require_cycles_inside_tour_dates: 'settingCycleInsideTour',
     require_receipt_type: 'settingRequireReceiptType',
     require_receipt_attachment: 'settingRequireReceiptAttachment',
+    auto_convert_images_to_pdf: 'settingAutoConvertImagesPdf',
+    keep_receipts_separate: 'settingKeepReceiptsSeparate',
     allowed_file_types: 'settingAllowedFileTypes',
     max_upload_mb: 'settingMaxUploadMb',
     audit_logging_enabled: 'settingAuditEnabled',
@@ -85,7 +89,7 @@
       <div class="settings-info-icon">i</div>
       <h3>${title}</h3>
       <p>${text}</p>
-      <div class="settings-info-panel">This setting is saved in the system settings table. Some behavior controls are stored now and will be connected to feature workflows in follow-up updates.</div>
+      <div class="settings-info-panel">This setting is saved in the system settings table. Some behavior controls are stored now and will be connected to feature workflows in follow-up updates. Receipt image-to-PDF conversion will be wired into the Receipts upload workflow next.</div>
       <div class="actions" style="justify-content:flex-end;margin-top:16px">
         <button class="btn" type="button" data-close-settings-info>OK</button>
       </div>

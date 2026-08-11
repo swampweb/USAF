@@ -25,7 +25,7 @@
     .settings-info-panel { margin-top: 14px; background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 12px; color: var(--text); font-weight: 700; line-height: 1.4; }
     @media (max-width: 760px) { .settings-form-grid { grid-template-columns: 1fr; } .settings-field input, .settings-field select { max-width: 100%; } }
   </style>
-  <link rel="stylesheet" href="../assets/css/styles.css?v=113">
+  <link rel="stylesheet" href="../assets/css/styles.css?v=114">
 </head>
 <body style="visibility:hidden">
   <div id="app">
@@ -89,7 +89,9 @@
           <div class="settings-section-body settings-form-grid">
             <div class="settings-field"><label>Require Receipt Type <button class="settings-info-btn" type="button" data-info-title="Require Receipt Type" data-info-text="Controls whether users must select a Receipt Type before saving a receipt.">i</button></label><select id="settingRequireReceiptType"><option value="true">Yes</option><option value="false">No</option></select></div>
             <div class="settings-field"><label>Require Receipt Attachment <button class="settings-info-btn" type="button" data-info-title="Require Receipt Attachment" data-info-text="Future control for requiring a file attachment before a receipt can be saved.">i</button></label><select id="settingRequireReceiptAttachment"><option value="false">No</option><option value="true">Yes</option></select></div>
-            <div class="settings-field"><label>Allowed File Types <button class="settings-info-btn" type="button" data-info-title="Allowed File Types" data-info-text="Future control for limiting which file extensions can be uploaded as receipt attachments.">i</button></label><input id="settingAllowedFileTypes" placeholder="pdf,jpg,jpeg,png"></div>
+            <div class="settings-field"><label>Auto Convert Images To PDF <button class="settings-info-btn" type="button" data-info-title="Auto Convert Images To PDF" data-info-text="When enabled, uploaded image receipts such as JPG, PNG, HEIC, or WEBP will be converted to individual PDF files for easier DTS attachment handling.">i</button></label><select id="settingAutoConvertImagesPdf"><option value="true">Yes</option><option value="false">No</option></select></div>
+            <div class="settings-field"><label>Keep Receipts Separate <button class="settings-info-btn" type="button" data-info-title="Keep Receipts Separate" data-info-text="Keeps each uploaded receipt as its own file. If a user uploads 7 images, the system should create 7 separate PDFs instead of one merged PDF.">i</button></label><select id="settingKeepReceiptsSeparate"><option value="true">Yes</option><option value="false">No</option></select></div>
+            <div class="settings-field"><label>Allowed File Types <button class="settings-info-btn" type="button" data-info-title="Allowed File Types" data-info-text="Controls which file extensions can be uploaded as receipt attachments. Recommended: pdf,jpg,jpeg,png,heic,webp.">i</button></label><input id="settingAllowedFileTypes" placeholder="pdf,jpg,jpeg,png,heic,webp"></div>
             <div class="settings-field"><label>Maximum Upload Size MB <button class="settings-info-btn" type="button" data-info-title="Maximum Upload Size" data-info-text="Future control for limiting how large uploaded receipt files can be.">i</button></label><input id="settingMaxUploadMb" type="number" min="1" max="100" step="1"></div>
           </div>
         </details>
@@ -107,10 +109,10 @@
     </section>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/config.js?v=113"></script>
-  <script src="../assets/js/supabaseClient.js?v=113"></script>
-  <script src="../assets/js/auth.js?v=113"></script>
-  <script src="../assets/js/layout.js?v=113"></script>
-  <script src="../assets/js/settings.js?v=113"></script>
+  <script src="../assets/js/config.js?v=114"></script>
+  <script src="../assets/js/supabaseClient.js?v=114"></script>
+  <script src="../assets/js/auth.js?v=114"></script>
+  <script src="../assets/js/layout.js?v=114"></script>
+  <script src="../assets/js/settings.js?v=114"></script>
 </body>
 </html>
