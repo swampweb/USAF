@@ -84,6 +84,15 @@ async function loadSettings() {
 }
 
 
+
+function ensureHelpDeskNavBadgeStyle() {
+  if (document.getElementById('helpDeskNavBadgeStyle')) return;
+  const style = document.createElement('style');
+  style.id = 'helpDeskNavBadgeStyle';
+  style.textContent = '.nav-link .nav-badge{margin-left:auto;min-width:20px;height:20px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:900;line-height:20px;text-align:center;padding:0 6px;display:inline-flex;align-items:center;justify-content:center}.nav-link .nav-badge[hidden]{display:none!important}';
+  document.head.appendChild(style);
+}
+
 async function refreshHelpDeskAdminBadge(profile) {
   try {
     if (String(profile?.role || '').toLowerCase() !== 'admin') return;
@@ -112,6 +121,7 @@ async function renderLayout(activeTitle) {
   document.documentElement.style.setProperty('--secondary', settings.secondary_color || '#0A2342');
   document.documentElement.style.setProperty('--accent', settings.accent_color || '#C0C0C0');
 
+  ensureHelpDeskNavBadgeStyle();
   const app = document.querySelector('#app');
   const content = app.innerHTML;
   const userLinksHtml = USER_LINKS.map(l => `<a class="nav-link ${isActive(l.href) ? 'active' : ''}" href="${normalizeHref(l.href)}">${iconSvg(l.icon)}<span>${l.label}</span></a>`).join('');
