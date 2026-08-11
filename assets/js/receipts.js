@@ -379,10 +379,31 @@ function setScope(scope) {
   populateReceiptTypes(type_id.value);
 }
 
+function receiptTypeAvailableForScope(type, scope) {
+  const explicitScope = String(type.scope || type.used_for || '').toLowerCase();
+  if (explicitScope) {
+    if (explicitScope === 'both') return true;
+    if (scope === 'per_diem') return ['per_diem', 'per diem'].includes(explicitScope);
+    if (scope === 'other') return explicitScope === 'other';
+  }
+
+  const hasPerDiemFlag = Object.prototype.hasOwnProperty.call(type, 'show_per_diem') || Object.prototype.hasOwnProperty.call(type, 'per_diem') || Object.prototype.hasOwnProperty.call(type, 'for_per_diem');
+  const hasOtherFlag = Object.prototype.hasOwnProperty.call(type, 'show_other') || Object.prototype.hasOwnProperty.call(type, 'other') || Object.prototype.hasOwnProperty.call(type, 'for_other');
+  const perDiemAllowed = type.show_per_diem === true || type.per_diem === true || type.for_per_diem === true;
+  const otherAllowed = type.show_other === true || type.other === true || type.for_other === true;
+
+  if (hasPerDiemFlag || hasOtherFlag) {
+    return scope === 'per_diem' ? perDiemAllowed : otherAllowed;
+  }
+
+  return true;
+}
+
 function populateReceiptTypes(selected='') {
-  const scopeTypes = typesCache.filter(t => !t.scope || t.scope === currentScope || t.scope === 'both');
+  const scopeTypes = typesCache.filter(t => String(t.active ?? true) !== 'false' && receiptTypeAvailableForScope(t, currentScope));
   type_id.innerHTML = '<option value="">Select Type</option>' + scopeTypes.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
-  type_id.value = selected || '';
+  const selectedStillAllowed = selected && scopeTypes.some(t => String(t.id) === String(selected));
+  type_id.value = selectedStillAllowed ? selected : '';
 }
 
 function populateCycles(selected='') {
