@@ -205,6 +205,10 @@ function addDays(value, days) {
   return date.toISOString().slice(0, 10);
 }
 
+function modalEscapeHtml(value) {
+  return String(value || '').replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
+}
+
 function findOverlappingTour(startDate, endDate, currentTourId = '') {
   const start = parseLocalDate(startDate);
   const end = parseLocalDate(endDate);
@@ -232,7 +236,7 @@ function showTourDateConflictMessage(startDate, endDate, conflict) {
       <p class="theme-message-text">The selected Tour dates overlap with another Tour already assigned to this account.</p>
       <div class="theme-message-panel">
         <div><strong>Selected Tour Dates:</strong> ${fmtDate(startDate)} - ${fmtDate(endDate)}</div>
-        <div><strong>Existing Tour:</strong> ${escapeHtml(existingName)}</div>
+        <div><strong>Existing Tour:</strong> ${modalEscapeHtml(existingName)}</div>
         <div><strong>Existing Tour Dates:</strong> ${existingDates}</div>
       </div>
       <p class="theme-message-text">Please choose a date range that does not overlap, or edit the existing Tour if these dates belong with that trip.</p>
@@ -265,43 +269,60 @@ function findAvailableCycleRangeForDate(dateValue, currentCycleId = '') {
   return getAvailableCycleRanges(currentCycleId).find(r => dateValue >= r.start && dateValue <= r.end) || null;
 }
 
+function buildDateList(startDate, endDate) {
+  const dates = [];
+  let cursor = startDate;
+  while (cursor && endDate && cursor <= endDate) {
+    dates.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return dates;
+}
+
+function ensureCycleDateSelect(id) {
+  const current = document.getElementById(id);
+  if (!current || current.tagName === 'SELECT') return current;
+  const select = document.createElement('select');
+  select.id = current.id;
+  select.name = current.name || current.id;
+  select.required = current.required;
+  select.className = current.className;
+  current.replaceWith(select);
+  return select;
+}
+
+function setSelectOptions(select, dates, selectedValue = '') {
+  if (!select) return;
+  const uniqueDates = [...new Set(dates.filter(Boolean))].sort();
+  select.innerHTML = uniqueDates.map(date => `<option value="${date}">${fmtDate(date)}</option>`).join('');
+  if (selectedValue && uniqueDates.includes(selectedValue)) select.value = selectedValue;
+  else if (uniqueDates.length) select.value = uniqueDates[0];
+}
+
 function setCycleDatePickerLimits(cycle = null) {
+  const startSelect = ensureCycleDateSelect('cycle_start_date');
+  const endSelect = ensureCycleDateSelect('cycle_end_date');
+  const oldHelp = document.getElementById('cycleDateAvailabilityHelp');
+  if (oldHelp) oldHelp.remove();
+
   const currentCycleId = cycle?.id || cycle_id_edit.value || '';
   const ranges = getAvailableCycleRanges(currentCycleId);
-  const helpId = 'cycleDateAvailabilityHelp';
-  let help = document.getElementById(helpId);
-  if (!help && cycle_end_date) {
-    help = document.createElement('div');
-    help.id = helpId;
-    help.className = 'summary-note';
-    help.style.marginTop = '10px';
-    cycle_end_date.closest('label')?.insertAdjacentElement('afterend', help);
-  }
   if (!ranges.length) {
-    cycle_start_date.min = selectedTour.orders_start_date || '';
-    cycle_start_date.max = selectedTour.orders_end_date || '';
-    cycle_end_date.min = selectedTour.orders_start_date || '';
-    cycle_end_date.max = selectedTour.orders_end_date || '';
-    if (help) help.textContent = 'All dates in this Tour are already assigned to existing cycles. Edit an existing cycle or adjust the Tour dates.';
+    setSelectOptions(startSelect, [], '');
+    setSelectOptions(endSelect, [], '');
     return;
   }
-  const first = ranges[0];
-  const last = ranges[ranges.length - 1];
-  cycle_start_date.min = first.start;
-  cycle_start_date.max = last.end;
-  if (!cycle && (!cycle_start_date.value || !findAvailableCycleRangeForDate(cycle_start_date.value, currentCycleId))) {
-    cycle_start_date.value = first.start;
-    cycle_end_date.value = first.end;
-  }
-  const selectedStart = cycle_start_date.value || first.start;
-  const activeRange = findAvailableCycleRangeForDate(selectedStart, currentCycleId) || first;
-  cycle_end_date.min = selectedStart < activeRange.start ? activeRange.start : selectedStart;
-  cycle_end_date.max = activeRange.end;
-  if (!cycle_end_date.value || cycle_end_date.value < cycle_end_date.min || cycle_end_date.value > cycle_end_date.max) cycle_end_date.value = cycle_end_date.min;
-  if (help) {
-    const text = ranges.map(r => `${fmtDate(r.start)} - ${fmtDate(r.end)}`).join(' | ');
-    help.textContent = `Available cycle dates for this Tour: ${text}`;
-  }
+
+  let availableStarts = [];
+  ranges.forEach(range => { availableStarts = availableStarts.concat(buildDateList(range.start, range.end)); });
+  if (cycle?.start_date && !availableStarts.includes(cycle.start_date)) availableStarts.push(cycle.start_date);
+  setSelectOptions(startSelect, availableStarts, cycle?.start_date || startSelect.value);
+
+  const selectedStart = startSelect.value || ranges[0].start;
+  const activeRange = findAvailableCycleRangeForDate(selectedStart, currentCycleId) || ranges[0];
+  let availableEnds = buildDateList(selectedStart, activeRange.end);
+  if (cycle?.end_date && !availableEnds.includes(cycle.end_date)) availableEnds.push(cycle.end_date);
+  setSelectOptions(endSelect, availableEnds, cycle?.end_date || endSelect.value);
 }
 
 function openTourModal(tour = null) {
@@ -391,7 +412,7 @@ function openCycleModal(cycle = null) {
     cycle_notes.value = cycle.notes || '';
   }
   setCycleDatePickerLimits(cycle);
-  cycle_start_date.onchange = () => setCycleDatePickerLimits(cycle);
+  cycle_start_date.onchange = () => setCycleDatePickerLimits(null);
   cycleModal.classList.add('open');
 }
 function closeCycleEditor() { cycleModal.classList.remove('open'); }
