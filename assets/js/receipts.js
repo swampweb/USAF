@@ -427,13 +427,154 @@ function validateReceiptDate() {
   return true;
 }
 
+
+let receiptUploadSettingsCache = null;
+
+async function loadReceiptUploadSettings() {
+  if (receiptUploadSettingsCache) return receiptUploadSettingsCache;
+  const defaults = {
+    auto_convert_images_to_pdf: true,
+    keep_receipts_separate: true,
+    allowed_file_types: 'pdf,jpg,jpeg,png,heic,webp'
+  };
+  try {
+    const { data, error } = await window.usafSupabase.from('USAF_settings').select('*').eq('id', true).maybeSingle();
+    if (error) throw error;
+    receiptUploadSettingsCache = { ...defaults, ...(data || {}) };
+  } catch (err) {
+    console.warn('Receipt upload settings fallback used', err);
+    receiptUploadSettingsCache = defaults;
+  }
+  return receiptUploadSettingsCache;
+}
+
+function fileExtension(file) {
+  return String(file?.name || '').split('.').pop().toLowerCase();
+}
+
+function isPdfFile(file) {
+  return file?.type === 'application/pdf' || fileExtension(file) === 'pdf';
+}
+
+function isSupportedConvertibleImage(file) {
+  const ext = fileExtension(file);
+  return ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || ['image/jpeg', 'image/png', 'image/webp'].includes(file?.type || '');
+}
+
+function isHeicFile(file) {
+  const ext = fileExtension(file);
+  return ['heic', 'heif'].includes(ext) || ['image/heic', 'image/heif'].includes(file?.type || '');
+}
+
+function pdfFileName(originalName) {
+  const clean = String(originalName || 'receipt').replace(/\.[^.]+$/, '');
+  return `${clean || 'receipt'}.pdf`;
+}
+
+function loadScriptOnce(src, testFn) {
+  return new Promise((resolve, reject) => {
+    if (testFn()) return resolve();
+    const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Failed to load PDF conversion library.')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.defer = true;
+    script.dataset.dynamicSrc = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load PDF conversion library.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureJsPdf() {
+  await loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', () => !!window.jspdf?.jsPDF);
+  if (!window.jspdf?.jsPDF) throw new Error('PDF conversion library did not initialize.');
+  return window.jspdf.jsPDF;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Unable to read the uploaded image for PDF conversion.'));
+    };
+    img.src = url;
+  });
+}
+
+async function convertImageFileToPdf(file) {
+  if (isHeicFile(file)) {
+    throw new Error('HEIC conversion is not supported in this browser workflow yet. Please save the image as JPG, PNG, WEBP, or PDF before uploading.');
+  }
+  if (!isSupportedConvertibleImage(file)) return file;
+  const jsPDF = await ensureJsPdf();
+  const img = await loadImageFromFile(file);
+  const pageWidth = img.width >= img.height ? 792 : 612;
+  const pageHeight = img.width >= img.height ? 612 : 792;
+  const margin = 24;
+  const maxWidth = pageWidth - margin * 2;
+  const maxHeight = pageHeight - margin * 2;
+  const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+  const drawWidth = img.width * scale;
+  const drawHeight = img.height * scale;
+  const x = (pageWidth - drawWidth) / 2;
+  const y = (pageHeight - drawHeight) / 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+  const pdf = new jsPDF({ orientation: pageWidth > pageHeight ? 'landscape' : 'portrait', unit: 'pt', format: [pageWidth, pageHeight] });
+  pdf.addImage(dataUrl, 'JPEG', x, y, drawWidth, drawHeight);
+  const blob = pdf.output('blob');
+  return new File([blob], pdfFileName(file.name), { type: 'application/pdf' });
+}
+
+async function prepareReceiptUploadFile(file) {
+  if (!file) return null;
+  const settings = await loadReceiptUploadSettings();
+  const allowed = String(settings.allowed_file_types || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  const ext = fileExtension(file);
+  if (allowed.length && !allowed.includes(ext)) {
+    throw new Error(`.${ext || 'file'} is not an allowed receipt file type. Allowed types: ${allowed.join(', ')}.`);
+  }
+  if (isPdfFile(file)) return file;
+  if (settings.auto_convert_images_to_pdf === false) return file;
+  if (isSupportedConvertibleImage(file) || isHeicFile(file)) return await convertImageFileToPdf(file);
+  return file;
+}
+
 async function uploadFile(userId, file) {
   if (!file) return {};
-  const safeName = file.name.replaceAll(' ', '_').replace(/[^a-zA-Z0-9._-]/g, '');
+  const preparedFile = await prepareReceiptUploadFile(file);
+  const safeName = preparedFile.name.replaceAll(' ', '_').replace(/[^a-zA-Z0-9._-]/g, '');
   const path = `${userId}/receipts/${receipt_date.value.slice(0,4)}/${receipt_date.value.slice(5,7)}/${Date.now()}_${safeName}`;
-  const { error } = await window.usafSupabase.storage.from(window.USAF_CONFIG.STORAGE_BUCKET).upload(path, file, { upsert:false });
+  const { error } = await window.usafSupabase.storage.from(window.USAF_CONFIG.STORAGE_BUCKET).upload(path, preparedFile, { upsert:false });
   if (error) throw error;
-  return { file_bucket: window.USAF_CONFIG.STORAGE_BUCKET, file_path: path, file_name: file.name, file_mime_type: file.type, file_size_bytes: file.size };
+  return {
+    file_bucket: window.USAF_CONFIG.STORAGE_BUCKET,
+    file_path: path,
+    file_name: preparedFile.name,
+    file_mime_type: preparedFile.type || 'application/pdf',
+    file_size_bytes: preparedFile.size,
+    original_file_name: file.name,
+    converted_to_pdf: file.name !== preparedFile.name && preparedFile.type === 'application/pdf'
+  };
 }
 
 async function saveReceipt(e) {
