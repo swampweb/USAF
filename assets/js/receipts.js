@@ -571,9 +571,7 @@ async function uploadFile(userId, file) {
     file_path: path,
     file_name: preparedFile.name,
     file_mime_type: preparedFile.type || 'application/pdf',
-    file_size_bytes: preparedFile.size,
-    original_file_name: file.name,
-    converted_to_pdf: file.name !== preparedFile.name && preparedFile.type === 'application/pdf'
+    file_size_bytes: preparedFile.size
   };
 }
 
@@ -609,7 +607,13 @@ async function saveReceipt(e) {
     if (typeof logAuditEvent === 'function') await logAuditEvent(id ? 'Receipt Updated' : 'Receipt Created', 'Receipts', 'Receipt', result.data?.id || id, payload.customer || scopeLabel(currentScope) + ' Receipt', id ? 'warning' : 'info', { tour_id: selectedTour.id, tour_name: selectedTour.tour_name, scope: currentScope, amount: payload.amount, file_changed: !!(newFile || removeExistingFile) }, originalReceipt || {}, result.data || payload);
     closeReceiptModalFn();
     await selectTour(selectedTour.id);
-  } catch (err) { showThemeMessage('Receipt Save Failed', err.message || String(err), 'danger'); }
+  } catch (err) {
+    const rawMessage = err.message || String(err);
+    const friendlyMessage = rawMessage.toLowerCase().includes('schema cache')
+      ? 'The receipt could not save because the database schema is missing a field expected by the app. The upload was stopped before saving. Refresh and try again after applying the latest update.'
+      : rawMessage;
+    showThemeMessage('Receipt Save Failed', friendlyMessage, 'danger');
+  }
   finally { saveReceiptBtn.disabled = false; saveReceiptBtn.textContent = receipt_id_edit.value ? 'Update Receipt' : 'Save Receipt'; }
 }
 
