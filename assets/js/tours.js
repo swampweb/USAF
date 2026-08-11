@@ -271,17 +271,64 @@ function openCycleModal(cycle = null) {
   cycleModal.classList.add('open');
 }
 function closeCycleEditor() { cycleModal.classList.remove('open'); }
+
+function showCycleDateConflictMessage(startDate, endDate, conflict) {
+  const existingDates = conflict ? `${fmtDate(conflict.start_date)} - ${fmtDate(conflict.end_date)}` : 'an existing cycle';
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.innerHTML = `<div class="modal-card voucher-ready-modal" role="dialog" aria-modal="true" aria-label="Cycle Date Conflict">
+    <div class="modal-body">
+      <div class="theme-message-icon warning">⚠️</div>
+      <h2 class="theme-message-title">Cycle Date Conflict</h2>
+      <p class="theme-message-text">The dates selected for this cycle overlap with another cycle already assigned to this account.</p>
+      <div class="theme-message-panel">
+        <div><strong>Selected Dates:</strong> ${fmtDate(startDate)} - ${fmtDate(endDate)}</div>
+        <div><strong>Existing Cycle:</strong> ${existingDates}</div>
+      </div>
+      <p class="theme-message-text">Please choose a date range that does not overlap, or edit the existing cycle if these dates should be part of that cycle.</p>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-cycle-conflict>OK</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close-cycle-conflict]')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+}
+
+function findOverlappingCycle(startDate, endDate, currentCycleId = '') {
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  return currentCycles.find(c => {
+    if (!c || c.id === currentCycleId) return false;
+    if (String(c.status || '').toLowerCase() === 'cancelled') return false;
+    const existingStart = new Date(c.start_date + 'T00:00:00');
+    const existingEnd = new Date(c.end_date + 'T00:00:00');
+    return start <= existingEnd && end >= existingStart;
+  });
+}
 async function saveCycle(e) {
   e.preventDefault();
   if (blockReadOnlyView()) return;
   const user = await getCurrentUser();
   if (cycle_start_date.value < selectedTour.orders_start_date || cycle_start_date.value > selectedTour.orders_end_date || cycle_end_date.value < selectedTour.orders_start_date || cycle_end_date.value > selectedTour.orders_end_date) return alert('Cycle dates must be within the selected Tour date range.');
   if (cycle_end_date.value < cycle_start_date.value) return alert('Cycle End Date cannot be before Cycle Start Date.');
-  const payload = { user_id:user.id, tour_id:selected_tour_id.value, start_date:cycle_start_date.value, end_date:cycle_end_date.value, per_diem_per_day:Number(cycle_per_diem_per_day.value), status:cycle_status.value, notes:cycle_notes.value || null };
   const id = cycle_id_edit.value;
+  const conflict = findOverlappingCycle(cycle_start_date.value, cycle_end_date.value, id);
+  if (conflict) {
+    showCycleDateConflictMessage(cycle_start_date.value, cycle_end_date.value, conflict);
+    return;
+  }
+  const payload = { user_id:user.id, tour_id:selected_tour_id.value, start_date:cycle_start_date.value, end_date:cycle_end_date.value, per_diem_per_day:Number(cycle_per_diem_per_day.value), status:cycle_status.value, notes:cycle_notes.value || null };
   const oldCycle = id ? (currentCycles.find(c => c.id === id) || null) : null;
   const result = id ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id).select().single() : await window.usafSupabase.from('USAF_cycles').insert(payload).select().single();
-  if (result.error) return alert(result.error.message);
+  if (result.error) {
+    if (String(result.error.message || '').includes('USAF_cycles_no_overlap_per_user') || String(result.error.message || '').toLowerCase().includes('conflicting key value')) {
+      showCycleDateConflictMessage(cycle_start_date.value, cycle_end_date.value, null);
+      return;
+    }
+    return alert(result.error.message);
+  }
   await logAuditEvent(id ? 'Cycle Updated' : 'Cycle Created', 'Tours', 'Cycle', result.data?.id || id, selectedTour?.tour_name || 'Cycle', id ? 'warning' : 'info', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name }, oldCycle || {}, result.data || payload);
   closeCycleEditor();
   await selectTour(selectedTour.id);
