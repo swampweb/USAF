@@ -1,4 +1,4 @@
-// Orders & Travel Tracker - Admin Settings v112
+// Orders & Travel Tracker - Admin Settings v113
 (function () {
   const TABLE = 'USAF_settings';
   const DEFAULTS = {
@@ -76,6 +76,34 @@
     return el.value;
   }
 
+
+  function showInfoModal(title, text) {
+    document.querySelector('.settings-modal-backdrop')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'settings-modal-backdrop';
+    modal.innerHTML = `<div class="settings-info-modal" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="settings-info-icon">i</div>
+      <h3>${title}</h3>
+      <p>${text}</p>
+      <div class="settings-info-panel">This setting is saved in the system settings table. Some behavior controls are stored now and will be connected to feature workflows in follow-up updates.</div>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px">
+        <button class="btn" type="button" data-close-settings-info>OK</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('[data-close-settings-info]')?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+  }
+
+  function bindInfoButtons() {
+    document.querySelectorAll('[data-info-title]').forEach(btn => {
+      btn.addEventListener('click', event => {
+        event.preventDefault();
+        showInfoModal(btn.dataset.infoTitle || 'Setting Information', btn.dataset.infoText || 'This setting controls application behavior.');
+      });
+    });
+  }
+
   function applySettings(row) {
     const settings = { ...DEFAULTS, ...(row || {}) };
     Object.keys(fields).forEach(key => setField(key, settings[key]));
@@ -112,6 +140,7 @@
   async function init() {
     await requireAdmin();
     await renderLayout('Admin - Settings');
+    bindInfoButtons();
     $('reloadSettingsBtn')?.addEventListener('click', loadSettings);
     $('saveSettingsBtn')?.addEventListener('click', saveSettings);
     await loadSettings();
