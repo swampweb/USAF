@@ -20,6 +20,27 @@ function blockReadOnlyView() {
   return true;
 }
 
+async function logAuditEvent(action, moduleName, entityType, entityId, entityName, severity = 'info', details = {}, oldValues = {}, newValues = {}) {
+  try {
+    if (!window.usafSupabase || typeof window.usafSupabase.rpc !== 'function') return;
+    const { error } = await window.usafSupabase.rpc('log_audit_event', {
+      p_action: action,
+      p_module: moduleName,
+      p_entity_type: entityType,
+      p_entity_id: entityId ? String(entityId) : null,
+      p_entity_name: entityName || null,
+      p_severity: severity,
+      p_details: details || {},
+      p_old_values: oldValues || {},
+      p_new_values: newValues || {}
+    });
+    if (error) console.warn('Audit log write failed', error);
+  } catch (err) {
+    console.warn('Audit log write failed', err);
+  }
+}
+
+
 
 function activeStatus(status) {
   return status === 'active' || status === 'planned';
@@ -161,8 +182,10 @@ async function saveTour(e) {
   const user = await getCurrentUser();
   const payload = { user_id:user.id, tour_name:tour_name.value.trim(), location:location_name.value.trim() || null, orders_number:orders_number.value.trim() || null, orders_start_date:orders_start_date.value, orders_end_date:orders_end_date.value, status:status.value, notes:notes.value.trim() || null };
   const id = tour_id_edit.value;
+  const oldTour = id ? (allTours.find(t => t.id === id) || selectedTour || null) : null;
   const result = id ? await window.usafSupabase.from('USAF_tours').update(payload).eq('id', id).select().single() : await window.usafSupabase.from('USAF_tours').insert(payload).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(id ? 'Tour Updated' : 'Tour Created', 'Tours', 'Tour', result.data?.id || id, payload.tour_name, id ? 'warning' : 'info', { location: payload.location, orders_number: payload.orders_number }, oldTour || {}, result.data || payload);
   closeTourEditor();
   await loadTours();
   await selectTour(result.data.id);
@@ -171,8 +194,10 @@ async function toggleTourActive() {
   if (blockReadOnlyView()) return;
   if (!selectedTour) return;
   const newStatus = activeStatus(selectedTour.status) ? 'cancelled' : 'active';
+  const oldTour = { ...selectedTour };
   const { error } = await window.usafSupabase.from('USAF_tours').update({ status:newStatus }).eq('id', selectedTour.id);
   if (error) return alert(error.message);
+  await logAuditEvent('Tour Status Changed', 'Tours', 'Tour', selectedTour.id, selectedTour.tour_name, newStatus === 'cancelled' ? 'critical' : 'warning', { old_status: oldTour.status, new_status: newStatus }, oldTour, { ...oldTour, status: newStatus });
   await loadTours();
 }
 
@@ -180,8 +205,10 @@ async function deleteTour() {
   if (blockReadOnlyView()) return;
   if (!selectedTour) return;
   if (!confirm(`Delete Tour "${selectedTour.tour_name || 'selected tour'}"? This cannot be undone.`)) return;
+  const deletedTour = { ...selectedTour };
   const { error } = await window.usafSupabase.from('USAF_tours').delete().eq('id', selectedTour.id).eq('user_id', selectedTour.user_id || (await getCurrentUser()).id);
   if (error) return alert('Tour delete failed. If this Tour has cycles or receipts, delete or move those records first. Supabase message: ' + error.message);
+  await logAuditEvent('Tour Deleted', 'Tours', 'Tour', deletedTour.id, deletedTour.tour_name, 'critical', { reason: 'Deleted from Tours page' }, deletedTour, {});
   selectedTour = null;
   currentCycles = [];
   await loadTours();
@@ -217,8 +244,10 @@ async function saveCycle(e) {
   if (cycle_end_date.value < cycle_start_date.value) return alert('Cycle End Date cannot be before Cycle Start Date.');
   const payload = { user_id:user.id, tour_id:selected_tour_id.value, start_date:cycle_start_date.value, end_date:cycle_end_date.value, per_diem_per_day:Number(cycle_per_diem_per_day.value), status:cycle_status.value, notes:cycle_notes.value || null };
   const id = cycle_id_edit.value;
-  const result = id ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id) : await window.usafSupabase.from('USAF_cycles').insert(payload);
+  const oldCycle = id ? (currentCycles.find(c => c.id === id) || null) : null;
+  const result = id ? await window.usafSupabase.from('USAF_cycles').update(payload).eq('id', id).select().single() : await window.usafSupabase.from('USAF_cycles').insert(payload).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(id ? 'Cycle Updated' : 'Cycle Created', 'Tours', 'Cycle', result.data?.id || id, selectedTour?.tour_name || 'Cycle', id ? 'warning' : 'info', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name }, oldCycle || {}, result.data || payload);
   closeCycleEditor();
   await selectTour(selectedTour.id);
 }
@@ -227,8 +256,10 @@ async function toggleCycleActive(id) {
   const cycle = currentCycles.find(c => c.id === id);
   if (!cycle) return;
   const newStatus = cycle.status === 'cancelled' ? 'active' : 'cancelled';
+  const oldCycle = { ...cycle };
   const { error } = await window.usafSupabase.from('USAF_cycles').update({ status:newStatus }).eq('id', id);
   if (error) return alert(error.message);
+  await logAuditEvent('Cycle Status Changed', 'Tours', 'Cycle', id, selectedTour?.tour_name || 'Cycle', newStatus === 'cancelled' ? 'critical' : 'warning', { old_status: oldCycle.status, new_status: newStatus, tour_id: selectedTour?.id }, oldCycle, { ...oldCycle, status: newStatus });
   await selectTour(selectedTour.id);
 }
 

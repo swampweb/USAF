@@ -3,6 +3,27 @@
 let usersCache = [];
 let selectedUser = null;
 
+async function logAuditEvent(action, moduleName, entityType, entityId, entityName, severity = 'info', details = {}, oldValues = {}, newValues = {}) {
+  try {
+    if (!window.usafSupabase || typeof window.usafSupabase.rpc !== 'function') return;
+    const { error } = await window.usafSupabase.rpc('log_audit_event', {
+      p_action: action,
+      p_module: moduleName,
+      p_entity_type: entityType,
+      p_entity_id: entityId ? String(entityId) : null,
+      p_entity_name: entityName || null,
+      p_severity: severity,
+      p_details: details || {},
+      p_old_values: oldValues || {},
+      p_new_values: newValues || {}
+    });
+    if (error) console.warn('Audit log write failed', error);
+  } catch (err) {
+    console.warn('Audit log write failed', err);
+  }
+}
+
+
 async function initAdminUsers() {
   try {
     await requireAdmin();
@@ -64,8 +85,10 @@ function selectUser(id) {
 function viewAsSelectedUser() {
   if (!selectedUser) return alert('Select a user first.');
   if (!window.USAFEffectiveUser) return alert('View as User helper did not load. Refresh the page with v=80.');
-  window.USAFEffectiveUser.setViewAsUser(selectedUser);
-  window.location.href = '../index.html?v=80';
+  logAuditEvent('View As User Started', 'Admin Users', 'User', selectedUser.id, selectedUser.display_name || selectedUser.email, 'critical', { target_email: selectedUser.email, target_role: selectedUser.role }).finally(() => {
+    window.USAFEffectiveUser.setViewAsUser(selectedUser);
+    window.location.href = '../index.html?v=80';
+  });
 }
 
 async function saveSelectedUser(e) {
@@ -80,8 +103,11 @@ async function saveSelectedUser(e) {
     role: admin_role.value,
     is_active: admin_is_active.value === 'true'
   };
+  const oldUser = { ...selectedUser };
   const { error } = await window.usafSupabase.from('USAF_profiles').update(payload).eq('id', selectedUser.id);
   if (error) return alert(error.message);
+  const severity = oldUser.role !== payload.role || oldUser.is_active !== payload.is_active ? 'critical' : 'warning';
+  await logAuditEvent('User Profile Updated', 'Admin Users', 'User', selectedUser.id, payload.display_name || payload.email, severity, { role_changed: oldUser.role !== payload.role, active_changed: oldUser.is_active !== payload.is_active }, oldUser, payload);
   alert('User updated.');
   const selectedId = selectedUser.id;
   await loadUsers();

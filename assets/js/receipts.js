@@ -379,8 +379,9 @@ async function saveReceipt(e) {
     if ((removeExistingFile || newFile) && originalReceipt?.file_bucket && originalReceipt?.file_path) {
       window.usafSupabase.storage.from(originalReceipt.file_bucket).remove([originalReceipt.file_path]).catch(err => console.warn('Receipt file remove warning', err));
     }
-    const result = id ? await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', id).eq('user_id', user.id) : await window.usafSupabase.from('USAF_receipts').insert(payload);
+    const result = id ? await window.usafSupabase.from('USAF_receipts').update(payload).eq('id', id).eq('user_id', user.id).select().single() : await window.usafSupabase.from('USAF_receipts').insert(payload).select().single();
     if (result.error) throw result.error;
+    await logAuditEvent(id ? 'Receipt Updated' : 'Receipt Created', 'Receipts', 'Receipt', result.data?.id || id, payload.customer || scopeLabel(currentScope) + ' Receipt', id ? 'warning' : 'info', { tour_id: selectedTour.id, tour_name: selectedTour.tour_name, scope: currentScope, amount: payload.amount, file_changed: !!(newFile || removeExistingFile) }, originalReceipt || {}, result.data || payload);
     closeReceiptModalFn();
     await selectTour(selectedTour.id);
   } catch (err) { alert(err.message || err); }
@@ -392,8 +393,10 @@ async function deleteReceipt(id) {
   const user = await currentUser();
   const r = receiptsCache.find(x => x.id === id);
   if (!confirm(`Delete receipt ${r?.customer || ''} ${r?.receipt_date || ''}? This cannot be undone.`)) return;
+  const deletedReceipt = r ? { ...r } : {};
   const { error } = await window.usafSupabase.from('USAF_receipts').delete().eq('id', id).eq('user_id', user.id);
   if (error) return alert('Receipt delete failed: ' + error.message);
+  await logAuditEvent('Receipt Deleted', 'Receipts', 'Receipt', id, r?.customer || r?.type_name || 'Receipt', 'critical', { tour_id: selectedTour?.id, tour_name: selectedTour?.tour_name, amount: r?.amount, receipt_date: r?.receipt_date }, deletedReceipt, {});
   await selectTour(selectedTour.id);
 }
 
