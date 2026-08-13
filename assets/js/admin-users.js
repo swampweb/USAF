@@ -290,35 +290,96 @@ async function deactivateSelectedUserAfterArchive(user, review, packageName) {
   await logAuditEvent('User Deactivated After Archive', 'Admin Users', 'User', user.id, user.display_name || user.email, 'critical', { package_name: packageName, stats: review.stats }, user, { ...user, is_active: false });
 }
 
+
+async function deleteRowsChecked(table, label, applyFilter, expectedMinimum = null) {
+  let query = window.usafSupabase.from(table).delete();
+  query = applyFilter(query);
+  const result = await query.select('id');
+  if (result.error) throw new Error(`${label} delete failed: ${result.error.message}`);
+  const deletedCount = (result.data || []).length;
+  if (expectedMinimum !== null && expectedMinimum > 0 && deletedCount === 0) {
+    throw new Error(`${label} delete did not remove any rows. This is usually caused by Supabase RLS delete policy blocking the action.`);
+  }
+  return deletedCount;
+}
+
+function storagePathFromPublicUrl(value, bucket) {
+  const text = String(value || '');
+  if (!text) return null;
+  if (!text.startsWith('http')) return text;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const index = text.indexOf(marker);
+  if (index === -1) return null;
+  return decodeURIComponent(text.slice(index + marker.length));
+}
+
+async function removeStorageFilesChecked(bucket, paths, label) {
+  const cleanPaths = [...new Set((paths || []).filter(Boolean))];
+  if (!cleanPaths.length) return 0;
+  const result = await window.usafSupabase.storage.from(bucket).remove(cleanPaths);
+  if (result.error) throw new Error(`${label} storage cleanup failed: ${result.error.message}`);
+  return cleanPaths.length;
+}
+
+async function deleteProfileChecked(userId) {
+  const result = await window.usafSupabase
+    .from('USAF_profiles')
+    .delete()
+    .eq('id', userId)
+    .select('id')
+    .maybeSingle();
+  if (result.error) throw new Error(`Profile delete failed: ${result.error.message}`);
+  if (!result.data) throw new Error('Profile delete did not remove a row. Confirm the Admin delete policy exists for USAF_profiles.');
+  return true;
+}
+
 async function purgeUserDataAndProfile(user, review, packageName) {
   const receiptRows = review.receipts || [];
   const voucherIds = (review.vouchers || []).map(v => v.id).filter(Boolean);
   const receiptIds = receiptRows.map(r => r.id).filter(Boolean);
   const ticketIds = (review.helpdeskTickets || []).map(t => t.id).filter(Boolean);
+  const helpdeskMessageIds = (review.helpdeskMessages || []).map(m => m.id).filter(Boolean);
   const cycleIds = (review.cycles || []).map(c => c.id).filter(Boolean);
   const tourIds = (review.tours || []).map(t => t.id).filter(Boolean);
-  const byBucket = {};
+  const removed = { storage: {}, rows: {} };
+
+  const receiptBucketDefault = window.USAF_CONFIG?.STORAGE_BUCKET || 'usaf-receipts';
+  const receiptPathsByBucket = {};
   receiptRows.forEach(receipt => {
-    const bucket = receipt.file_bucket || window.USAF_CONFIG?.STORAGE_BUCKET || 'usaf-receipts';
-    if (bucket && receipt.file_path) {
-      if (!byBucket[bucket]) byBucket[bucket] = [];
-      byBucket[bucket].push(receipt.file_path);
+    const bucket = receipt.file_bucket || receiptBucketDefault;
+    const path = receipt.file_path;
+    if (bucket && path) {
+      if (!receiptPathsByBucket[bucket]) receiptPathsByBucket[bucket] = [];
+      receiptPathsByBucket[bucket].push(path);
     }
   });
-  for (const [bucket, paths] of Object.entries(byBucket)) {
-    if (paths.length) await window.usafSupabase.storage.from(bucket).remove(paths);
+  for (const [bucket, paths] of Object.entries(receiptPathsByBucket)) {
+    removed.storage[bucket] = await removeStorageFilesChecked(bucket, paths, 'Receipt file');
   }
-  if (ticketIds.length) await window.usafSupabase.from('USAF_helpdesk_messages').delete().in('ticket_id', ticketIds);
-  if (ticketIds.length) await window.usafSupabase.from('USAF_helpdesk_tickets').delete().in('id', ticketIds);
-  if (voucherIds.length) await window.usafSupabase.from('USAF_voucher_items').delete().in('voucher_id', voucherIds);
-  if (receiptIds.length) await window.usafSupabase.from('USAF_voucher_items').delete().in('receipt_id', receiptIds);
-  if (voucherIds.length) await window.usafSupabase.from('USAF_vouchers').delete().in('id', voucherIds);
-  if (receiptIds.length) await window.usafSupabase.from('USAF_receipts').delete().in('id', receiptIds);
-  if (cycleIds.length) await window.usafSupabase.from('USAF_cycles').delete().in('id', cycleIds);
-  if (tourIds.length) await window.usafSupabase.from('USAF_tours').delete().in('id', tourIds);
-  const { error } = await window.usafSupabase.from('USAF_profiles').delete().eq('id', user.id);
-  if (error) throw error;
-  await logAuditEvent('User Data Purged and Profile Deleted', 'Admin Users', 'User', user.id, user.display_name || user.email, 'critical', { package_name: packageName, stats: review.stats, removed_storage_paths: byBucket }, user, {});
+
+  const helpdeskImagePaths = [];
+  [...(review.helpdeskTickets || []), ...(review.helpdeskMessages || [])].forEach(row => {
+    const path = storagePathFromPublicUrl(row.image_url, 'usaf-helpdesk');
+    if (path) helpdeskImagePaths.push(path);
+  });
+  if (helpdeskImagePaths.length) {
+    removed.storage['usaf-helpdesk'] = await removeStorageFilesChecked('usaf-helpdesk', helpdeskImagePaths, 'Help Desk image');
+  }
+
+  if (ticketIds.length) removed.rows.helpdesk_messages = await deleteRowsChecked('USAF_helpdesk_messages', 'Help Desk messages', q => q.in('ticket_id', ticketIds), helpdeskMessageIds.length);
+  if (ticketIds.length) removed.rows.helpdesk_tickets = await deleteRowsChecked('USAF_helpdesk_tickets', 'Help Desk tickets', q => q.in('id', ticketIds), ticketIds.length);
+  if (voucherIds.length) removed.rows.voucher_items_by_voucher = await deleteRowsChecked('USAF_voucher_items', 'Voucher items', q => q.in('voucher_id', voucherIds));
+  if (receiptIds.length) removed.rows.voucher_items_by_receipt = await deleteRowsChecked('USAF_voucher_items', 'Voucher receipt links', q => q.in('receipt_id', receiptIds));
+  if (voucherIds.length) removed.rows.vouchers = await deleteRowsChecked('USAF_vouchers', 'Voucher packages', q => q.in('id', voucherIds), voucherIds.length);
+  if (receiptIds.length) removed.rows.receipts = await deleteRowsChecked('USAF_receipts', 'Receipts', q => q.in('id', receiptIds), receiptIds.length);
+  if (cycleIds.length) removed.rows.cycles = await deleteRowsChecked('USAF_cycles', 'Cycles', q => q.in('id', cycleIds), cycleIds.length);
+  if (tourIds.length) removed.rows.tours = await deleteRowsChecked('USAF_tours', 'Tours', q => q.in('id', tourIds), tourIds.length);
+
+  await deleteProfileChecked(user.id);
+  removed.rows.profile = 1;
+
+  await logAuditEvent('User Data Purged and Profile Deleted', 'Admin Users', 'User', user.id, user.display_name || user.email, 'critical', { package_name: packageName, stats: review.stats, removed }, user, {});
+  return removed;
 }
 
 function showDeleteReviewModal(user, review) {
@@ -597,8 +658,7 @@ async function deleteSelectedUser() {
         danger: true
       });
       if (!confirmed) return;
-      const { error } = await window.usafSupabase.from('USAF_profiles').delete().eq('id', userForAction.id);
-      if (error) throw error;
+      await deleteProfileChecked(userForAction.id);
       await logAuditEvent('User Profile Deleted', 'Admin Users', 'User', userForAction.id, userForAction.display_name || userForAction.email, 'critical', { no_application_records: true }, userForAction, {});
       await showAdminUserModal({ title: 'User Deleted', message: 'The user profile was removed from the application.', body: userSummaryHtml(userForAction), confirmText: 'Close', success: true });
     }
@@ -618,11 +678,11 @@ async function deleteSelectedUser() {
         });
       }
       if (next.action === 'purge_delete') {
-        await purgeUserDataAndProfile(userForAction, review, packageInfo.packageName);
+        const purgeResult = await purgeUserDataAndProfile(userForAction, review, packageInfo.packageName);
         await showAdminUserModal({
           title: 'User Data Purged',
-          message: 'The user archive package was created, and the user application records were purged.',
-          body: `<div class="admin-user-modal-success">Archive package verified: ${escapeHtml(packageInfo.packageName)}</div><div class="admin-user-modal-warning">If the Supabase Auth account still exists, remove it separately from Supabase Authentication.</div>`,
+          message: 'The archive package was created, verified, and the application records were removed.',
+          body: `<div class="admin-user-modal-success">Archive package verified: ${escapeHtml(packageInfo.packageName)}</div><div class="admin-user-modal-note">Database cleanup completed. Rows removed: ${escapeHtml(JSON.stringify(purgeResult.rows))}</div><div class="admin-user-modal-warning">If the Supabase Auth account still exists, remove it separately from Supabase Authentication.</div>`,
           confirmText: 'Close',
           success: true
         });
