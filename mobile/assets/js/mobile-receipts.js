@@ -1,4 +1,4 @@
-// Mobile Receipts - Tour Selection, CRUD, Validation, Preview v135
+// Mobile Receipts - Scope Toggle Fix v136
 window.MobileReceipts = (() => {
   const M = window.MobileShell;
   let toursCache = [];
@@ -143,14 +143,28 @@ window.MobileReceipts = (() => {
     showThemeMessage('Customer / Vendor Required', 'Enter the business or vendor shown on the receipt before saving.', () => { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   }
 
-  function renderReceiptForm(receipt = null) {
+  function renderReceiptForm(receipt = null, scopeOverride = null) {
     const host = document.getElementById('mobileReceiptFormHost');
     if (!host) return;
-    currentScope = receipt?.scope || 'per_diem';
+    currentScope = scopeOverride || receipt?.scope || currentScope || 'per_diem';
     const tour = selectedTour();
     host.innerHTML = `<section class="form-card mobile-receipt-form-card"><div class="card-title-row"><strong>${receipt ? 'Edit Receipt' : 'Add Receipt'}</strong><button class="back-link" type="button" id="mobileCancelReceiptBtn">Close</button></div><div class="mobile-scope-toggle"><button type="button" class="${currentScope === 'per_diem' ? 'active' : ''}" data-mobile-scope="per_diem">Per Diem</button><button type="button" class="${currentScope === 'other' ? 'active' : ''}" data-mobile-scope="other">Other</button></div>
       <form id="mobileReceiptForm" novalidate><label>Receipt Type<select id="mobileReceiptType" required>${typeOptions(receipt?.type_id || '')}</select></label><label id="mobileReceiptCycleWrap" style="display:${currentScope === 'per_diem' ? 'grid' : 'none'}">Cycle<select id="mobileReceiptCycle">${cycleOptions(receipt?.cycle_id || '')}</select></label><label>Customer / Vendor <span class="required-indicator">Required</span><input id="mobileReceiptCustomer" value="${safeHtml(receipt?.customer || '')}" placeholder="Enter business or vendor" required aria-describedby="mobileReceiptCustomerError"><small id="mobileReceiptCustomerError" class="mobile-field-error" hidden></small></label><div class="form-two"><label>Date<input id="mobileReceiptDate" type="date" min="${safeHtml(tour?.orders_start_date || '')}" max="${safeHtml(tour?.orders_end_date || '')}" value="${safeHtml(receipt?.receipt_date || tour?.orders_start_date || '')}" required></label><label>Amount<input id="mobileReceiptAmount" type="number" min="0" step="0.01" value="${safeHtml(receipt?.amount || '')}" required></label></div><label>Notes<textarea id="mobileReceiptNotes">${safeHtml(receipt?.notes || '')}</textarea></label><label>Attachment<input id="mobileReceiptFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"></label>${receipt?.file_name ? `<div class="notice">Current file: ${safeHtml(receipt.file_name)}</div>` : ''}<button class="btn full" type="submit" id="mobileSaveReceiptBtn">${receipt ? 'Update Receipt' : 'Save Receipt'}</button></form></section>`;
-    host.querySelectorAll('[data-mobile-scope]').forEach(button => button.addEventListener('click', () => { currentScope = button.dataset.mobileScope; renderReceiptForm(receipt ? { ...receipt, scope: currentScope, type_id: '' } : null); }));
+    host.querySelectorAll('[data-mobile-scope]').forEach(button => button.addEventListener('click', () => {
+      const nextScope = button.dataset.mobileScope;
+      const draft = {
+        ...(receipt || {}),
+        scope: nextScope,
+        type_id: '',
+        cycle_id: nextScope === 'per_diem' ? (document.getElementById('mobileReceiptCycle')?.value || receipt?.cycle_id || '') : null,
+        customer: document.getElementById('mobileReceiptCustomer')?.value || receipt?.customer || '',
+        receipt_date: document.getElementById('mobileReceiptDate')?.value || receipt?.receipt_date || '',
+        amount: document.getElementById('mobileReceiptAmount')?.value || receipt?.amount || '',
+        notes: document.getElementById('mobileReceiptNotes')?.value || receipt?.notes || ''
+      };
+      currentScope = nextScope;
+      renderReceiptForm(draft, nextScope);
+    }));
     document.getElementById('mobileCancelReceiptBtn').addEventListener('click', () => { host.innerHTML = ''; });
     const input = document.getElementById('mobileReceiptCustomer'); const error = document.getElementById('mobileReceiptCustomerError'); input.addEventListener('input', () => { if (input.value.trim()) clearRequiredError(input, error); });
     document.getElementById('mobileReceiptForm').addEventListener('submit', event => saveReceipt(event, receipt));
