@@ -1,4 +1,4 @@
-// Mobile split loader v100
+// Mobile split loader v130
 // Keeps mobile page logic split across dedicated files.
 // IMPORTANT: do not merge feature logic into this loader.
 (() => {
