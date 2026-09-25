@@ -1,4 +1,4 @@
-// Mobile Receipts - Grouped Compact View v139
+// Mobile Receipts - Group Collapse Fix v140
 window.MobileReceipts = (() => {
   const M = window.MobileShell;
   let toursCache = [];
@@ -29,7 +29,7 @@ window.MobileReceipts = (() => {
     style.textContent = `
       .mobile-receipt-groups{display:grid;gap:12px}.mobile-receipt-group{border:1px solid var(--line);border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 8px 24px rgba(10,35,66,.07)}
       .mobile-receipt-group-toggle{width:100%;border:0;background:linear-gradient(135deg,#f8fbff,#edf4ff);padding:14px;display:grid;grid-template-columns:1fr auto;gap:10px;text-align:left;color:var(--text);cursor:pointer}.mobile-receipt-group-toggle strong{font-size:16px}.mobile-receipt-group-toggle span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.mobile-receipt-group-total{text-align:right}.mobile-receipt-group-total b{display:block;color:var(--primary);font-size:17px}.mobile-receipt-group-total small{color:var(--muted);font-size:11px}
-      .mobile-receipt-group-body{display:grid}.mobile-compact-receipt{border-top:1px solid #e8eef6;background:#fff}.mobile-compact-receipt:first-child{border-top:0}.mobile-compact-head{width:100%;border:0;background:#fff;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;color:var(--text);cursor:pointer}.mobile-compact-title{min-width:0;display:grid;gap:3px}.mobile-compact-title strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mobile-compact-title span{color:var(--muted);font-size:11px}.mobile-compact-amount{text-align:right;display:grid;gap:3px}.mobile-compact-amount b{font-size:15px;color:var(--primary)}.mobile-compact-amount small{color:var(--muted);font-size:11px}
+      .mobile-receipt-group-body{display:grid}.mobile-receipt-group-body[hidden]{display:none!important}.mobile-compact-receipt{border-top:1px solid #e8eef6;background:#fff}.mobile-compact-receipt:first-child{border-top:0}.mobile-compact-head{width:100%;border:0;background:#fff;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;color:var(--text);cursor:pointer}.mobile-compact-title{min-width:0;display:grid;gap:3px}.mobile-compact-title strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mobile-compact-title span{color:var(--muted);font-size:11px}.mobile-compact-amount{text-align:right;display:grid;gap:3px}.mobile-compact-amount b{font-size:15px;color:var(--primary)}.mobile-compact-amount small{color:var(--muted);font-size:11px}
       .mobile-compact-details{padding:0 14px 13px;display:grid;gap:8px}.mobile-compact-details[hidden]{display:none}.mobile-compact-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #edf2f7;padding-top:7px;font-size:12px}.mobile-compact-row span{color:var(--muted)}.mobile-compact-row b{text-align:right;max-width:68%;overflow-wrap:anywhere}.mobile-compact-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:2px}.mobile-compact-actions .btn{min-height:38px;padding:8px;border-radius:12px;font-size:12px}.mobile-group-empty{padding:15px;color:var(--muted);text-align:center;font-size:12px}
       @media(max-width:380px){.mobile-compact-actions{grid-template-columns:1fr}.mobile-compact-row{display:grid;gap:3px}.mobile-compact-row b{max-width:100%;text-align:left}}
     `;
@@ -188,8 +188,13 @@ window.MobileReceipts = (() => {
     ensureGroupedReceiptStyles();
     M.getContent().querySelectorAll('[data-toggle-group]').forEach(button => button.addEventListener('click', () => {
       const group = button.dataset.toggleGroup;
+      const groupSection = button.closest('.mobile-receipt-group');
+      const groupBody = groupSection?.querySelector('.mobile-receipt-group-body');
+      const summary = button.querySelector('.mobile-receipt-group-total small');
       expandedGroups[group] = !expandedGroups[group];
-      renderReceipts();
+      button.setAttribute('aria-expanded', String(expandedGroups[group]));
+      if (groupBody) groupBody.hidden = !expandedGroups[group];
+      if (summary) summary.textContent = expandedGroups[group] ? '▲ Collapse' : '▼ Expand';
     }));
     M.getContent().querySelectorAll('[data-toggle-receipt]').forEach(button => button.addEventListener('click', () => {
       const id = button.dataset.toggleReceipt;

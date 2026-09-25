@@ -1,18 +1,18 @@
-// Mobile split loader v139
+// Mobile split loader v140
 // Keeps mobile page logic split across dedicated files.
 // IMPORTANT: do not merge feature logic into this loader.
 (() => {
   const rootPrefix = location.pathname.includes('/USAF/') ? '/USAF/' : '/';
   const scripts = [
-    rootPrefix + 'assets/js/effective-user.js?v=139',
-    'mobile-shell.js?v=139',
-    'mobile-dashboard.js?v=139',
-    'mobile-cycles.js?v=139',
-    'mobile-tours.js?v=139',
-    'mobile-receipts.js?v=139',
-    'mobile-vouchers.js?v=139',
-    'mobile-profile.js?v=139',
-    'mobile-helpdesk.js?v=139'
+    rootPrefix + 'assets/js/effective-user.js?v=140',
+    'mobile-shell.js?v=140',
+    'mobile-dashboard.js?v=140',
+    'mobile-cycles.js?v=140',
+    'mobile-tours.js?v=140',
+    'mobile-receipts.js?v=140',
+    'mobile-vouchers.js?v=140',
+    'mobile-profile.js?v=140',
+    'mobile-helpdesk.js?v=140'
   ];
   const current = document.currentScript;
   const baseUrl = current && current.src ? current.src.substring(0, current.src.lastIndexOf('/') + 1) : './';
