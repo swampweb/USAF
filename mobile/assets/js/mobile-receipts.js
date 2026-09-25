@@ -21,7 +21,7 @@ window.MobileReceipts = (() => {
     return normalizeUuid(type?.id || type?.type_id || type?.receipt_type_id);
   }
   const expandedReceiptIds = new Set();
-  const expandedGroups = { per_diem: true, other: true };
+  const expandedGroups = { per_diem: false, other: false };
   function ensureGroupedReceiptStyles() {
     if (document.getElementById('mobileReceiptGroupedStyles')) return;
     const style = document.createElement('style');
