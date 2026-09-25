@@ -1,4 +1,4 @@
-// Mobile Receipts - Strict UUID Sanitization Fix v138
+// Mobile Receipts - Grouped Compact View v139
 window.MobileReceipts = (() => {
   const M = window.MobileShell;
   let toursCache = [];
@@ -19,6 +19,21 @@ window.MobileReceipts = (() => {
   }
   function receiptTypeUuid(type) {
     return normalizeUuid(type?.id || type?.type_id || type?.receipt_type_id);
+  }
+  const expandedReceiptIds = new Set();
+  const expandedGroups = { per_diem: true, other: true };
+  function ensureGroupedReceiptStyles() {
+    if (document.getElementById('mobileReceiptGroupedStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'mobileReceiptGroupedStyles';
+    style.textContent = `
+      .mobile-receipt-groups{display:grid;gap:12px}.mobile-receipt-group{border:1px solid var(--line);border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 8px 24px rgba(10,35,66,.07)}
+      .mobile-receipt-group-toggle{width:100%;border:0;background:linear-gradient(135deg,#f8fbff,#edf4ff);padding:14px;display:grid;grid-template-columns:1fr auto;gap:10px;text-align:left;color:var(--text);cursor:pointer}.mobile-receipt-group-toggle strong{font-size:16px}.mobile-receipt-group-toggle span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.mobile-receipt-group-total{text-align:right}.mobile-receipt-group-total b{display:block;color:var(--primary);font-size:17px}.mobile-receipt-group-total small{color:var(--muted);font-size:11px}
+      .mobile-receipt-group-body{display:grid}.mobile-compact-receipt{border-top:1px solid #e8eef6;background:#fff}.mobile-compact-receipt:first-child{border-top:0}.mobile-compact-head{width:100%;border:0;background:#fff;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;color:var(--text);cursor:pointer}.mobile-compact-title{min-width:0;display:grid;gap:3px}.mobile-compact-title strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mobile-compact-title span{color:var(--muted);font-size:11px}.mobile-compact-amount{text-align:right;display:grid;gap:3px}.mobile-compact-amount b{font-size:15px;color:var(--primary)}.mobile-compact-amount small{color:var(--muted);font-size:11px}
+      .mobile-compact-details{padding:0 14px 13px;display:grid;gap:8px}.mobile-compact-details[hidden]{display:none}.mobile-compact-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #edf2f7;padding-top:7px;font-size:12px}.mobile-compact-row span{color:var(--muted)}.mobile-compact-row b{text-align:right;max-width:68%;overflow-wrap:anywhere}.mobile-compact-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:2px}.mobile-compact-actions .btn{min-height:38px;padding:8px;border-radius:12px;font-size:12px}.mobile-group-empty{padding:15px;color:var(--muted);text-align:center;font-size:12px}
+      @media(max-width:380px){.mobile-compact-actions{grid-template-columns:1fr}.mobile-compact-row{display:grid;gap:3px}.mobile-compact-row b{max-width:100%;text-align:left}}
+    `;
+    document.head.appendChild(style);
   }
 
   async function loadTours() {
@@ -129,23 +144,59 @@ window.MobileReceipts = (() => {
     } catch (error) { showThemeMessage('Preview Failed', error.message || String(error)); }
   }
 
-  function receiptCard(r) {
+  function compactReceiptCard(r) {
+    const isExpanded = expandedReceiptIds.has(r.id);
     const cycle = r.USAF_cycles ? `${M.dt(r.USAF_cycles.start_date)} - ${M.dt(r.USAF_cycles.end_date)}` : 'No cycle linked';
-    const file = hasReceiptFile(r) ? `<button class="mobile-file-preview-button" type="button" data-preview-receipt="${safeHtml(r.id)}">📎 ${safeHtml(r.file_name || 'View receipt')}</button>` : '<span>No file attached</span>';
-    return `<article class="data-card receipt-card ${hasReceiptFile(r) ? 'has-file' : ''}">
-      <div class="card-title-row"><strong>${hasReceiptFile(r) ? '📎 ' : ''}${safeHtml(r.customer || receiptTypeLabel(r))}</strong><b>${M.money(r.amount)}</b></div>
-      <span>${safeHtml(receiptTypeLabel(r))}</span><div class="data-row"><span>Date</span><b>${M.dt(r.receipt_date)}</b></div><div class="data-row"><span>Cycle</span><b>${cycle}</b></div><div class="data-row"><span>Tour</span><b>${safeHtml(r.USAF_tours?.tour_name || selectedTour()?.tour_name || 'Tour')}</b></div><div class="data-row"><span>File</span><b>${file}</b></div>${r.notes ? `<span class="muted">${safeHtml(r.notes)}</span>` : ''}
-      <div class="mobile-receipt-actions"><button class="btn secondary" type="button" data-edit-receipt="${safeHtml(r.id)}">Edit</button><button class="btn danger" type="button" data-delete-receipt="${safeHtml(r.id)}">Delete</button></div>
+    const tourName = r.USAF_tours?.tour_name || selectedTour()?.tour_name || 'Tour';
+    const fileButton = hasReceiptFile(r) ? `<button class="btn secondary" type="button" data-preview-receipt="${safeHtml(r.id)}">View</button>` : '';
+    return `<article class="mobile-compact-receipt">
+      <button class="mobile-compact-head" type="button" data-toggle-receipt="${safeHtml(r.id)}" aria-expanded="${isExpanded}">
+        <div class="mobile-compact-title"><strong>${safeHtml(r.customer || receiptTypeLabel(r))}</strong><span>${safeHtml(receiptTypeLabel(r))} • ${M.dt(r.receipt_date)}</span></div>
+        <div class="mobile-compact-amount"><b>${M.money(r.amount)}</b><small>${isExpanded ? '▲ Hide' : '▼ Details'}</small></div>
+      </button>
+      <div class="mobile-compact-details" ${isExpanded ? '' : 'hidden'}>
+        ${r.scope === 'per_diem' ? `<div class="mobile-compact-row"><span>Cycle</span><b>${cycle}</b></div>` : ''}
+        <div class="mobile-compact-row"><span>Tour</span><b title="${safeHtml(tourName)}">${safeHtml(tourName)}</b></div>
+        <div class="mobile-compact-row"><span>File</span><b>${r.file_name ? `📎 ${safeHtml(r.file_name)}` : 'No file attached'}</b></div>
+        ${r.notes ? `<div class="mobile-compact-row"><span>Notes</span><b>${safeHtml(r.notes)}</b></div>` : ''}
+        <div class="mobile-compact-actions">${fileButton}<button class="btn secondary" type="button" data-edit-receipt="${safeHtml(r.id)}">Edit</button><button class="btn danger" type="button" data-delete-receipt="${safeHtml(r.id)}">Delete</button></div>
+      </div>
     </article>`;
   }
-
+  function receiptGroupHtml(scope, title, rows) {
+    const total = rows.reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    const expanded = expandedGroups[scope];
+    return `<section class="mobile-receipt-group">
+      <button class="mobile-receipt-group-toggle" type="button" data-toggle-group="${scope}" aria-expanded="${expanded}">
+        <div><strong>${title}</strong><span>${rows.length} receipt${rows.length === 1 ? '' : 's'}</span></div>
+        <div class="mobile-receipt-group-total"><b>${M.money(total)}</b><small>${expanded ? '▲ Collapse' : '▼ Expand'}</small></div>
+      </button>
+      <div class="mobile-receipt-group-body" ${expanded ? '' : 'hidden'}>${rows.length ? rows.map(compactReceiptCard).join('') : `<div class="mobile-group-empty">No ${title} receipts for this Tour.</div>`}</div>
+    </section>`;
+  }
+  function groupedReceiptsHtml() {
+    const perDiem = receiptsCache.filter(r => String(r.scope || '').toLowerCase() === 'per_diem');
+    const other = receiptsCache.filter(r => String(r.scope || '').toLowerCase() !== 'per_diem');
+    return `<div class="mobile-receipt-groups">${receiptGroupHtml('per_diem', 'Per Diem', perDiem)}${receiptGroupHtml('other', 'Other', other)}</div>`;
+  }
   async function renderReceipts() {
     await Promise.all([loadTours(), loadTypes()]);
     await loadTourData();
     const total = receiptsCache.reduce((sum, r) => sum + Number(r.amount || 0), 0);
     M.getContent().innerHTML = `<section class="mobile-receipt-toolbar-card"><label>Select Tour<select id="mobileReceiptTourSelect">${toursCache.map(t => `<option value="${safeHtml(t.id)}" ${t.id === selectedTourId ? 'selected' : ''}>${safeHtml(t.tour_name || t.location || 'Tour')} (${M.dt(t.orders_start_date)} - ${M.dt(t.orders_end_date)})</option>`).join('')}</select></label><button class="btn full" type="button" id="mobileAddReceiptBtn" ${selectedTourId ? '' : 'disabled'}>+ Add Receipt</button></section>
-      <div class="toolbar"><strong>Tour Receipts</strong><span class="badge-pill">${receiptsCache.length} • ${M.money(total)}</span></div><section class="summary-grid compact"><div class="kpi-card"><span>Receipts</span><strong>${receiptsCache.length}</strong><small>Total count</small></div><div class="kpi-card"><span>Total</span><strong>${M.money(total)}</strong><small>Receipt amount</small></div><div class="kpi-card"><span>Files</span><strong>📎 ${receiptsCache.filter(hasReceiptFile).length}</strong><small>Attached</small></div></section><div id="mobileReceiptFormHost"></div><div class="card-list">${receiptsCache.length ? receiptsCache.map(receiptCard).join('') : '<div class="empty-card">No receipts for this Tour yet.</div>'}</div>`;
-    document.getElementById('mobileReceiptTourSelect')?.addEventListener('change', async event => { selectedTourId = event.target.value; await renderReceipts(); });
+      <div class="toolbar"><strong>Tour Receipts</strong><span class="badge-pill">${receiptsCache.length} • ${M.money(total)}</span></div><section class="summary-grid compact"><div class="kpi-card"><span>Receipts</span><strong>${receiptsCache.length}</strong><small>Total count</small></div><div class="kpi-card"><span>Total</span><strong>${M.money(total)}</strong><small>Receipt amount</small></div><div class="kpi-card"><span>Files</span><strong>📎 ${receiptsCache.filter(hasReceiptFile).length}</strong><small>Attached</small></div></section><div id="mobileReceiptFormHost"></div>${groupedReceiptsHtml()}`;
+    ensureGroupedReceiptStyles();
+    M.getContent().querySelectorAll('[data-toggle-group]').forEach(button => button.addEventListener('click', () => {
+      const group = button.dataset.toggleGroup;
+      expandedGroups[group] = !expandedGroups[group];
+      renderReceipts();
+    }));
+    M.getContent().querySelectorAll('[data-toggle-receipt]').forEach(button => button.addEventListener('click', () => {
+      const id = button.dataset.toggleReceipt;
+      if (expandedReceiptIds.has(id)) expandedReceiptIds.delete(id); else expandedReceiptIds.add(id);
+      renderReceipts();
+    }));
+    document.getElementById('mobileReceiptTourSelect')?.addEventListener('change', async event => { selectedTourId = event.target.value; expandedReceiptIds.clear(); await renderReceipts(); });
     document.getElementById('mobileAddReceiptBtn')?.addEventListener('click', () => renderReceiptForm());
     M.getContent().querySelectorAll('[data-edit-receipt]').forEach(button => button.addEventListener('click', () => renderReceiptForm(receiptsCache.find(r => r.id === button.dataset.editReceipt))));
     M.getContent().querySelectorAll('[data-delete-receipt]').forEach(button => button.addEventListener('click', () => deleteReceipt(button.dataset.deleteReceipt)));
@@ -264,5 +315,5 @@ window.MobileReceipts = (() => {
   }
 
   M.registerPage('receipts', renderReceipts);
-  return { renderReceipts, hasReceiptFile, receiptCard };
+  return { renderReceipts, hasReceiptFile, receiptCard: compactReceiptCard };
 })();
