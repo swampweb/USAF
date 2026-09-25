@@ -1,4 +1,4 @@
-// Mobile Receipts - Scope Toggle Fix v136
+// Mobile Receipts - Strict UUID Sanitization Fix v138
 window.MobileReceipts = (() => {
   const M = window.MobileShell;
   let toursCache = [];
@@ -13,6 +13,13 @@ window.MobileReceipts = (() => {
   function receiptTypeLabel(r) { return r.USAF_receipt_types?.name || r.scope || 'Receipt'; }
   function fileExtension(file) { return String(file?.name || '').split('.').pop().toLowerCase(); }
   function safeHtml(value) { return M.esc(String(value ?? '')); }
+  function normalizeUuid(value) {
+    const text = String(value ?? '').trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : null;
+  }
+  function receiptTypeUuid(type) {
+    return normalizeUuid(type?.id || type?.type_id || type?.receipt_type_id);
+  }
 
   async function loadTours() {
     const uid = M.getUser().id;
@@ -65,12 +72,22 @@ window.MobileReceipts = (() => {
   }
 
   function typeOptions(selected = '') {
+    const selectedUuid = normalizeUuid(selected);
     return '<option value="">Select Type</option>' + typesCache
-      .filter(t => String(t.active ?? true) !== 'false' && typeAvailable(t, currentScope))
-      .map(t => `<option value="${safeHtml(t.id)}" ${String(t.id) === String(selected) ? 'selected' : ''}>${safeHtml(t.name)}</option>`).join('');
+      .filter(t => String(t.active ?? true) !== 'false' && typeAvailable(t, currentScope) && receiptTypeUuid(t))
+      .map(t => {
+        const uuid = receiptTypeUuid(t);
+        return `<option value="${safeHtml(uuid)}" ${uuid === selectedUuid ? 'selected' : ''}>${safeHtml(t.name)}</option>`;
+      }).join('');
   }
   function cycleOptions(selected = '') {
-    return '<option value="">Select Cycle</option>' + cyclesCache.map(c => `<option value="${safeHtml(c.id)}" ${String(c.id) === String(selected) ? 'selected' : ''}>${M.dt(c.start_date)} - ${M.dt(c.end_date)} (${M.money(c.per_diem_per_day)}/day)</option>`).join('');
+    const selectedUuid = normalizeUuid(selected);
+    return '<option value="">Select Cycle</option>' + cyclesCache
+      .filter(c => normalizeUuid(c.id))
+      .map(c => {
+        const uuid = normalizeUuid(c.id);
+        return `<option value="${safeHtml(uuid)}" ${uuid === selectedUuid ? 'selected' : ''}>${M.dt(c.start_date)} - ${M.dt(c.end_date)} (${M.money(c.per_diem_per_day)}/day)</option>`;
+      }).join('');
   }
 
   function showThemeMessage(title, message, onClose) {
@@ -142,31 +159,52 @@ window.MobileReceipts = (() => {
     input.classList.add('mobile-field-invalid'); error.hidden = false; error.textContent = 'Customer / Vendor is required. Enter the business or vendor shown on the receipt.';
     showThemeMessage('Customer / Vendor Required', 'Enter the business or vendor shown on the receipt before saving.', () => { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   }
+  function showReceiptTypeRequired() {
+    const input = document.getElementById('mobileReceiptType');
+    input.classList.add('mobile-field-invalid');
+    let error = document.getElementById('mobileReceiptTypeError');
+    if (!error) {
+      error = document.createElement('small');
+      error.id = 'mobileReceiptTypeError';
+      error.className = 'mobile-field-error';
+      input.insertAdjacentElement('afterend', error);
+    }
+    error.textContent = 'Receipt Type is required. Select a valid type for the selected receipt mode.';
+    showThemeMessage('Receipt Type Required', 'Select a Receipt Type before saving the receipt.', () => { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  }
 
-  function renderReceiptForm(receipt = null, scopeOverride = null) {
+  function renderReceiptForm(receipt = null, scopeOverride = null, draftValues = null) {
     const host = document.getElementById('mobileReceiptFormHost');
     if (!host) return;
-    currentScope = scopeOverride || receipt?.scope || currentScope || 'per_diem';
+    currentScope = scopeOverride || draftValues?.scope || receipt?.scope || currentScope || 'per_diem';
+    const formValues = draftValues || receipt || {};
     const tour = selectedTour();
-    host.innerHTML = `<section class="form-card mobile-receipt-form-card"><div class="card-title-row"><strong>${receipt ? 'Edit Receipt' : 'Add Receipt'}</strong><button class="back-link" type="button" id="mobileCancelReceiptBtn">Close</button></div><div class="mobile-scope-toggle"><button type="button" class="${currentScope === 'per_diem' ? 'active' : ''}" data-mobile-scope="per_diem">Per Diem</button><button type="button" class="${currentScope === 'other' ? 'active' : ''}" data-mobile-scope="other">Other</button></div>
-      <form id="mobileReceiptForm" novalidate><label>Receipt Type<select id="mobileReceiptType" required>${typeOptions(receipt?.type_id || '')}</select></label><label id="mobileReceiptCycleWrap" style="display:${currentScope === 'per_diem' ? 'grid' : 'none'}">Cycle<select id="mobileReceiptCycle">${cycleOptions(receipt?.cycle_id || '')}</select></label><label>Customer / Vendor <span class="required-indicator">Required</span><input id="mobileReceiptCustomer" value="${safeHtml(receipt?.customer || '')}" placeholder="Enter business or vendor" required aria-describedby="mobileReceiptCustomerError"><small id="mobileReceiptCustomerError" class="mobile-field-error" hidden></small></label><div class="form-two"><label>Date<input id="mobileReceiptDate" type="date" min="${safeHtml(tour?.orders_start_date || '')}" max="${safeHtml(tour?.orders_end_date || '')}" value="${safeHtml(receipt?.receipt_date || tour?.orders_start_date || '')}" required></label><label>Amount<input id="mobileReceiptAmount" type="number" min="0" step="0.01" value="${safeHtml(receipt?.amount || '')}" required></label></div><label>Notes<textarea id="mobileReceiptNotes">${safeHtml(receipt?.notes || '')}</textarea></label><label>Attachment<input id="mobileReceiptFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"></label>${receipt?.file_name ? `<div class="notice">Current file: ${safeHtml(receipt.file_name)}</div>` : ''}<button class="btn full" type="submit" id="mobileSaveReceiptBtn">${receipt ? 'Update Receipt' : 'Save Receipt'}</button></form></section>`;
+    host.innerHTML = `<section class="form-card mobile-receipt-form-card"><div class="card-title-row"><strong>${receipt?.id ? 'Edit Receipt' : 'Add Receipt'}</strong><button class="back-link" type="button" id="mobileCancelReceiptBtn">Close</button></div><div class="mobile-scope-toggle"><button type="button" class="${currentScope === 'per_diem' ? 'active' : ''}" data-mobile-scope="per_diem">Per Diem</button><button type="button" class="${currentScope === 'other' ? 'active' : ''}" data-mobile-scope="other">Other</button></div>
+      <form id="mobileReceiptForm" novalidate><label>Receipt Type<select id="mobileReceiptType" required>${typeOptions(formValues.type_id || '')}</select></label><label id="mobileReceiptCycleWrap" style="display:${currentScope === 'per_diem' ? 'grid' : 'none'}">Cycle<select id="mobileReceiptCycle">${cycleOptions(formValues.cycle_id || '')}</select></label><label>Customer / Vendor <span class="required-indicator">Required</span><input id="mobileReceiptCustomer" value="${safeHtml(formValues.customer || '')}" placeholder="Enter business or vendor" required aria-describedby="mobileReceiptCustomerError"><small id="mobileReceiptCustomerError" class="mobile-field-error" hidden></small></label><div class="form-two"><label>Date<input id="mobileReceiptDate" type="date" min="${safeHtml(tour?.orders_start_date || '')}" max="${safeHtml(tour?.orders_end_date || '')}" value="${safeHtml(formValues.receipt_date || tour?.orders_start_date || '')}" required></label><label>Amount<input id="mobileReceiptAmount" type="number" min="0" step="0.01" value="${safeHtml(formValues.amount || '')}" required></label></div><label>Notes<textarea id="mobileReceiptNotes">${safeHtml(formValues.notes || '')}</textarea></label><label>Attachment<input id="mobileReceiptFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"></label>${formValues.file_name ? `<div class="notice">Current file: ${safeHtml(formValues.file_name)}</div>` : ''}<button class="btn full" type="submit" id="mobileSaveReceiptBtn">${receipt?.id ? 'Update Receipt' : 'Save Receipt'}</button></form></section>`;
     host.querySelectorAll('[data-mobile-scope]').forEach(button => button.addEventListener('click', () => {
       const nextScope = button.dataset.mobileScope;
       const draft = {
-        ...(receipt || {}),
         scope: nextScope,
         type_id: '',
-        cycle_id: nextScope === 'per_diem' ? (document.getElementById('mobileReceiptCycle')?.value || receipt?.cycle_id || '') : null,
-        customer: document.getElementById('mobileReceiptCustomer')?.value || receipt?.customer || '',
-        receipt_date: document.getElementById('mobileReceiptDate')?.value || receipt?.receipt_date || '',
-        amount: document.getElementById('mobileReceiptAmount')?.value || receipt?.amount || '',
-        notes: document.getElementById('mobileReceiptNotes')?.value || receipt?.notes || ''
+        cycle_id: nextScope === 'per_diem' ? (document.getElementById('mobileReceiptCycle')?.value || formValues.cycle_id || '') : null,
+        customer: document.getElementById('mobileReceiptCustomer')?.value || formValues.customer || '',
+        receipt_date: document.getElementById('mobileReceiptDate')?.value || formValues.receipt_date || '',
+        amount: document.getElementById('mobileReceiptAmount')?.value || formValues.amount || '',
+        notes: document.getElementById('mobileReceiptNotes')?.value || formValues.notes || '',
+        file_name: formValues.file_name || ''
       };
       currentScope = nextScope;
-      renderReceiptForm(draft, nextScope);
+      renderReceiptForm(receipt, nextScope, draft);
     }));
     document.getElementById('mobileCancelReceiptBtn').addEventListener('click', () => { host.innerHTML = ''; });
     const input = document.getElementById('mobileReceiptCustomer'); const error = document.getElementById('mobileReceiptCustomerError'); input.addEventListener('input', () => { if (input.value.trim()) clearRequiredError(input, error); });
+    document.getElementById('mobileReceiptType').addEventListener('change', event => {
+      if (event.target.value && event.target.value !== 'undefined') {
+        event.target.classList.remove('mobile-field-invalid');
+        const typeError = document.getElementById('mobileReceiptTypeError');
+        if (typeError) typeError.remove();
+      }
+    });
     document.getElementById('mobileReceiptForm').addEventListener('submit', event => saveReceipt(event, receipt));
     host.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -185,17 +223,34 @@ window.MobileReceipts = (() => {
     event.preventDefault();
     const customer = document.getElementById('mobileReceiptCustomer').value.trim();
     if (!customer) return showCustomerRequired();
-    const scope = currentScope; const date = document.getElementById('mobileReceiptDate').value; const cycleId = document.getElementById('mobileReceiptCycle')?.value || null;
-    if (scope === 'per_diem' && !cycleId) return showThemeMessage('Cycle Required', 'Select a Cycle before saving a Per Diem receipt.');
+    const typeId = normalizeUuid(document.getElementById('mobileReceiptType').value);
+    if (!typeId) return showReceiptTypeRequired();
+    const userId = normalizeUuid(M.getUser().id);
+    const tourId = normalizeUuid(selectedTourId);
+    const scope = currentScope;
+    const date = document.getElementById('mobileReceiptDate').value;
+    const cycleId = scope === 'per_diem' ? normalizeUuid(document.getElementById('mobileReceiptCycle')?.value) : null;
+    const receiptId = normalizeUuid(existing?.id);
+    if (!userId) return showThemeMessage('User Account Error', 'The signed-in user ID is invalid. Sign out and sign back in before trying again.');
+    if (!tourId) return showThemeMessage('Tour Required', 'Select a valid Tour before saving the receipt.');
+    if (scope === 'per_diem' && !cycleId) return showThemeMessage('Cycle Required', 'Select a valid Cycle before saving a Per Diem receipt.');
+    if (existing?.id && !receiptId) return showThemeMessage('Receipt Record Error', 'The selected receipt record has an invalid ID. Close the form, refresh the page, and select the receipt again.');
     const button = document.getElementById('mobileSaveReceiptBtn');
     try {
       button.disabled = true; button.textContent = 'Saving...';
-      const payload = { user_id: M.getUser().id, tour_id: selectedTourId, cycle_id: scope === 'per_diem' ? cycleId : null, type_id: document.getElementById('mobileReceiptType').value, scope, customer, receipt_date: date, amount: Number(document.getElementById('mobileReceiptAmount').value || 0), notes: document.getElementById('mobileReceiptNotes').value.trim() || null, ...await uploadFile(document.getElementById('mobileReceiptFile').files?.[0], date) };
-      const result = existing ? await M.supa().from('USAF_receipts').update(payload).eq('id', existing.id).eq('user_id', M.getUser().id).select('id').single() : await M.supa().from('USAF_receipts').insert(payload).select('id').single();
+      const payload = { user_id: userId, tour_id: tourId, cycle_id: cycleId, type_id: typeId, scope, customer, receipt_date: date, amount: Number(document.getElementById('mobileReceiptAmount').value || 0), notes: document.getElementById('mobileReceiptNotes').value.trim() || null, ...await uploadFile(document.getElementById('mobileReceiptFile').files?.[0], date) };
+      const result = receiptId ? await M.supa().from('USAF_receipts').update(payload).eq('id', receiptId).eq('user_id', userId).select('id').single() : await M.supa().from('USAF_receipts').insert(payload).select('id').single();
       if (result.error) throw result.error;
       await renderReceipts();
-    } catch (error) { showThemeMessage('Receipt Save Failed', error.message || String(error)); }
-    finally { if (button) { button.disabled = false; button.textContent = existing ? 'Update Receipt' : 'Save Receipt'; } }
+    } catch (error) {
+      const message = error.message || String(error);
+      if (message.includes('invalid input syntax for type uuid')) {
+        showThemeMessage('Receipt Save Failed', 'A linked record contains an invalid ID. Close the receipt form, refresh the page, reselect the Tour and Receipt Type, then try again.');
+      } else {
+        showThemeMessage('Receipt Save Failed', message);
+      }
+    }
+    finally { if (button) { button.disabled = false; button.textContent = receiptId ? 'Update Receipt' : 'Save Receipt'; } }
   }
 
   async function deleteReceipt(id) {
